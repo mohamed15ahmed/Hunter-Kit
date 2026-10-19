@@ -19,6 +19,7 @@ import VulnsCves from './attacks/vulns&Cves';
 import Lfi from './attacks/lfi';
 import PotentialXss from './attacks/potentialXss';
 import SqlInjection from './attacks/sqlInjection';
+import ConnectionPanel from './attacks/ConnectionPanel';
 
 export default function Attacks() {
   const [details, setDetails] = useState<ProjectDetails>();
@@ -40,6 +41,7 @@ export default function Attacks() {
       <p className="text-sm text-gray-400">Each module scans a limited set of selected inputs. Panel detections and exposures are scanner observations; review their evidence. See Attack Results for completion status, request counts and failures.</p>
       {details && (
         <div>
+          <ConnectionPanel projectName={details.name} target={details.targetUrl || details.domain} />
           <h2 className="font-bold text-2xl mb-4 text-center">General</h2>
           <div className="mb-8">
             <div className="grid grid-flow-row grid-cols-2 gap-4">

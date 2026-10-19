@@ -1,0 +1,22 @@
+id: hunterkit-http-connectivity
+
+info:
+  name: HunterKit HTTP connectivity diagnostic
+  author: HunterKit
+  severity: info
+  description: A single ordinary GET request used only for transport diagnostics, never a vulnerability finding.
+  tags: hunterkit-connectivity
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code >= 100 && status_code < 600"
+    extractors:
+      - type: dsl
+        name: status
+        dsl:
+          - "status_code"

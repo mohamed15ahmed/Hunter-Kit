@@ -1,3 +1,12 @@
+# 1.11.0 — Native connectivity and scan jobs
+
+- Check Node and Nuclei connectivity before a large attack scan; report proxy, DNS, TLS, timeout and port failures separately from zero findings.
+- Resolve proxy environment/NO_PROXY and static Windows proxy consistently for Node discovery, Nuclei and Dalfox. Keep explicit target schemes and ports.
+- Serialize tool jobs across clients with duplicate protection, queued cancellation, status polling and concise inline results.
+- Distinguish engine completion with request errors from interruption; preserve valid Dalfox reports with exit2 and mark process deadlines incomplete.
+- Export bounded diagnostics and describe GET/POST/login discovery coverage.
+- Add real native proxy/recovery regressions and a Windows/Linux verification workflow using a checkout path containing spaces.
+
 # 1.10.0 — Attack pipeline repair
 
 - Preserve target scheme, port, path and query; separate HTTP inputs from DNS hostnames.

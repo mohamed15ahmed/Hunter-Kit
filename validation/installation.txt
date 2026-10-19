@@ -1,0 +1,70 @@
+
+> hunterkit-web@1.11.0 setup
+> npm ci && npm run download:tools && npm run setup:templates && npm run check:tools && npm run check:attacks
+
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 377 packages in 8s
+
+> hunterkit-web@1.11.0 download:tools
+> node scripts/download-original-tools.mjs
+
+nuclei v3.11.1: installed and SHA-256 verified
+dalfox v3.2.4: installed and SHA-256 verified
+jsleak v1.0.0: installed and SHA-256 verified
+httpx v1.12.0: installed and SHA-256 verified
+subfinder v2.17.0: installed and SHA-256 verified
+waybackurls v0.1.0: installed and SHA-256 verified
+
+> hunterkit-web@1.11.0 setup:templates
+> node scripts/setup-templates.mjs
+
+Nuclei templates v10.5.0: installed and archive SHA-256 verified
+
+> hunterkit-web@1.11.0 check:tools
+> npm run check:tools -w backend
+
+
+> @hunterkit/backend@1.11.0 check:tools
+> tsx src/check-tools.ts
+
+
+HunterKit Web diagnostics — build 1.11.0 CONNECTION-AND-QUEUE-FIX
+Project root : /workspace/package-verification-111/Hunter Kit
+Projects     : /workspace/package-verification-111/Hunter Kit/projects
+Bundled tools: /workspace/package-verification-111/Hunter Kit/bin
+Nuclei templates: PRESENT  /workspace/package-verification-111/Hunter Kit/.tools/nuclei-templates
+
+INSTALLED means the expected executable starts; it does not establish target coverage or findings.
+
+✓ subfinder    INSTALLED  /workspace/package-verification-111/Hunter Kit/bin/subfinder
+  [INF] Current Version: v2.17.0
+✓ httpx        INSTALLED  /workspace/package-verification-111/Hunter Kit/bin/httpx
+  [INF] Current Version: v1.12.0
+✓ waybackurls  INSTALLED  /workspace/package-verification-111/Hunter Kit/bin/waybackurls
+  Usage of /workspace/package-verification-111/Hunter Kit/bin/waybackurls:
+✓ nuclei       INSTALLED  /workspace/package-verification-111/Hunter Kit/bin/nuclei
+  [INF] Nuclei Engine Version: v3.11.1
+✓ dalfox       INSTALLED  /workspace/package-verification-111/Hunter Kit/bin/dalfox
+  dalfox 3.2.4
+✓ jsleak       INSTALLED  /workspace/package-verification-111/Hunter Kit/bin/jsleak
+  Usage of /workspace/package-verification-111/Hunter Kit/bin/jsleak:
+
+Screenshot browser: /usr/bin/chromium
+
+> hunterkit-web@1.11.0 check:attacks
+> node scripts/check-attack-profiles.mjs
+
+
+HunterKit attack profile diagnostics
+Templates: /workspace/package-verification-111/Hunter Kit/.tools/nuclei-templates
+✓ General (common HTTP)      3278 template(s)
+✓ Exposed panels             1581 template(s)
+✓ Default logins              307 template(s)
+✓ Subdomain takeovers          73 template(s)
+✓ Exposures                   711 template(s)
+✓ CVE scan                   4354 template(s)
+✓ LFI DAST                      3 template(s)
+✓ SQLi DAST                     2 template(s)
+
+Counts show installed templates before runtime severity/tag/protocol filters. Actual loaded/request counts are saved per scan. LFI/SQLi require parameter URLs; XSS requires Dalfox v3.

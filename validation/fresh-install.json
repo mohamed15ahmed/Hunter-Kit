@@ -1,6 +1,9 @@
 {
-  "freshZipExtraction": true,
+  "version": "1.11.0",
+  "separateSourceExtraction": true,
+  "pathContainsSpaces": true,
   "npmSetup": "PASS",
+  "releaseArchivesFromVerifiedCache": true,
   "productionNpmStart": "PASS",
   "productionFrontendRequest": "PASS",
   "productionPanelScan": "PASS",
