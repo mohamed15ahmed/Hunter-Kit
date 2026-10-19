@@ -21,7 +21,7 @@ dist/assets/index-CS4_WFYd.js          798.18 kB │ gzip: 207.03 kB
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 3.52s
+✓ built in 4.04s
 
 > @hunterkit/backend@1.11.0 build
 > tsc -p tsconfig.json

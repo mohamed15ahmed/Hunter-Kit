@@ -6,6 +6,6 @@ Extract into a new directory, run `INSTALL-TOOLS.cmd`, then `START-HUNTERKIT.cmd
 
 This update serializes tool jobs, resolves native attack proxy settings, preserves target ports and distinguishes failed connectivity, completed runs with request errors, interrupted runs and skipped tests. A zero count is not proof that the target is secure. Login sessions, POST/JSON and JavaScript workflows are not automatically covered.
 
-Local Linux verification: build and 44 tests passed, none skipped, including real scanners, Chromium UI, screenshots, proxy/recovery and deadline tests. A separate installation and production scan passed in a path containing spaces. Windows execution is not yet verified; `.github/workflows/verify.yml` adds Linux and Windows checks.
+Local Linux verification: build and 44 tests passed, none skipped, including real scanners, Chromium UI, screenshots, proxy/recovery and deadline tests. A separate installation and production scan passed in a path containing spaces. [GitHub verification passed on Windows and Linux](https://github.com/mohamed15ahmed/Hunter-Kit/actions/runs/39310214428), including Windows Edge browser tests in a checkout path containing spaces.
 
 Full details: `FIX-REPORT.ar.md` and `validation/`. ZIP SHA-256: `downloads/HunterKit-Fixed-1.11.0.zip.sha256`.
