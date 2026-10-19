@@ -1,0 +1,1 @@
+declare global { interface Window { electron: { ipcRenderer: { invoke: (channel: string, ...args: any[]) => Promise<any>; sendMessage?: (...args:any[])=>void; on?: (...args:any[])=>any; once?: (...args:any[])=>any; } } } } export {};

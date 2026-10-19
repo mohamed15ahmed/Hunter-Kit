@@ -1,0 +1,13 @@
+import { toolDiagnostics } from './core.js';
+const info = await toolDiagnostics();
+console.log('\nHunterKit Web diagnostics — build 1.10.0 ATTACK-PIPELINE-FIX');
+console.log(`Project root : ${info.root}`);
+console.log(`Projects     : ${info.projectDir}`);
+console.log(`Bundled tools: ${info.binDir}`);
+console.log(`Nuclei templates: ${info.nucleiTemplates.ready ? 'PRESENT' : 'MISSING'}  ${info.nucleiTemplates.path}\n`);
+console.log('INSTALLED means the expected executable starts; it does not establish target coverage or findings.\n');
+for (const tool of info.tools)
+    console.log(`${tool.ready ? '✓' : '✗'} ${tool.name.padEnd(12)} ${tool.ready ? 'INSTALLED' : 'UNAVAILABLE/INCOMPATIBLE'}  ${tool.path}\n  ${tool.detail}`);
+console.log(`\nScreenshot browser: ${info.browser || 'MISSING — install Chrome/Edge/Chromium or set HUNTERKIT_BROWSER'}`);
+if (info.tools.some(tool => !tool.ready) || !info.nucleiTemplates.ready)
+    process.exitCode = 1;
