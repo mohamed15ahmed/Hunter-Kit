@@ -32,9 +32,10 @@ jobs:
         shell: pwsh
         run: |
           $browser = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $browser) { throw 'Edge was not found on the Windows runner.' }
+          if (-not $browser) { Write-Output '::error::Edge was not found on the Windows runner.'; exit 1 }
           $env:HUNTERKIT_TEST_BROWSER = $browser
-          npm test
+          node tests/run-ci.mjs
+          exit $LASTEXITCODE
       - name: Verify on Linux
         if: runner.os == 'Linux'
         run: npm test
