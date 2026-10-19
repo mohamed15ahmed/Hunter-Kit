@@ -1,0 +1,110 @@
+{
+  "nuclei": {
+    "repository": "projectdiscovery/nuclei",
+    "version": "v3.11.1",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_linux_amd64.zip",
+        "sha256": "ea63d4ae232808cd7c6bc00d0142428e231fab59dae01042246097d195835ab6",
+        "upstreamChecksum": true,
+        "binarySha256": "c49588140f357cbdddd5436dec11201953a4c5390faeec90777f9ee2cfd70251"
+      },
+      "windows-x64": {
+        "url": "https://github.com/projectdiscovery/nuclei/releases/download/v3.11.1/nuclei_3.11.1_windows_amd64.zip",
+        "sha256": "bb6cb9ff8939b753f6fcab06fd30a15f5bc61d8382a597871334c007a85ff9d2",
+        "upstreamChecksum": true,
+        "binarySha256": "73d5e5b0dde9ea5d5fc15dcc34c756148ccae20dc431a21e611af11b8649b480"
+      }
+    }
+  },
+  "dalfox": {
+    "repository": "hahwul/dalfox",
+    "version": "v3.2.4",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/hahwul/dalfox/releases/download/v3.2.4/dalfox-v3.2.4-linux-x86_64.tar.gz",
+        "sha256": "aaef3f3d26d2de6d4e61ef5295151d9de36e111981618136ac7ec54b578582b8",
+        "upstreamChecksum": true,
+        "binarySha256": "883be3ce9124a7af567b73836d32536d7888b336cc6d551c1360f137a5940dbe"
+      },
+      "windows-x64": {
+        "url": "https://github.com/hahwul/dalfox/releases/download/v3.2.4/dalfox-v3.2.4-windows-x86_64.zip",
+        "sha256": "28100d9355a1c767facd571a180d08b87d4de61167b3db99d56e4d8a6601d69a",
+        "upstreamChecksum": true,
+        "binarySha256": "5a48b938792c81ed610a2bcfde36827dcbc6c41cc2292c60fcc06c13a4b2ad3f"
+      }
+    }
+  },
+  "jsleak": {
+    "repository": "0xHunterr/jsleak",
+    "version": "v1.0.0",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/0xHunterr/jsleak/releases/download/v1.0.0/jsleak_1.0.0_linux.zip",
+        "sha256": "94f6cecd6d87c5c3b4e7929d0921d2869a220ac7d24471ab6d266abcd3fba10b",
+        "upstreamChecksum": false,
+        "binarySha256": "4404d2dbe7094ff50c1f140c351fc07af190497582ea009aaebb15d8e2dee78e"
+      },
+      "windows-x64": {
+        "url": "https://github.com/0xHunterr/jsleak/releases/download/v1.0.0/jsleak_1.0.0_windows.zip",
+        "sha256": "fb64e1d2cf59c9d4c66bc414940d3d832d970cd04260e38f9266a75984fe3d06",
+        "upstreamChecksum": false,
+        "binarySha256": "b2c31e7026c91b2efe6e5e97eb9925613bc7ae7e212be180982e0355b4b0ff5e"
+      }
+    }
+  },
+  "httpx": {
+    "repository": "projectdiscovery/httpx",
+    "version": "v1.12.0",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.12.0/httpx_1.12.0_linux_amd64.zip",
+        "sha256": "9d8439e8b6c9aa7d1e2314817a392e00d5178da3af5652f7475f88868f418f76",
+        "upstreamChecksum": true,
+        "binarySha256": "6d78b83b4da452a7e0bd3613c4fae04cbf523209f083904b563f4d4406a680b0"
+      },
+      "windows-x64": {
+        "url": "https://github.com/projectdiscovery/httpx/releases/download/v1.12.0/httpx_1.12.0_windows_amd64.zip",
+        "sha256": "14d8ccaa2d95ce9365162682f1a2ba3f14d2000bb4bfb0924af65ec5163ae021",
+        "upstreamChecksum": true,
+        "binarySha256": "95129b2771ad64e675a436279bdfb72cbf00000ebab482f045d021fffff6fbeb"
+      }
+    }
+  },
+  "subfinder": {
+    "repository": "projectdiscovery/subfinder",
+    "version": "v2.17.0",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.17.0/subfinder_2.17.0_linux_amd64.zip",
+        "sha256": "a39c3e5c7a26ef3c430915c4d6cbf7716a00f26769a75e9405aba796142eba37",
+        "upstreamChecksum": true,
+        "binarySha256": "bf4ad8590702b0bb92be9b3be185f96a230b047c9b97f2831cf8914344f0b15a"
+      },
+      "windows-x64": {
+        "url": "https://github.com/projectdiscovery/subfinder/releases/download/v2.17.0/subfinder_2.17.0_windows_amd64.zip",
+        "sha256": "a3fd612928d591fb31c1e59a2e06055e364421ba32251e553073f5673a2d3103",
+        "upstreamChecksum": true,
+        "binarySha256": "163c509636aaea3d333c5f3119fd9152cf661d7aef7212522509c14aa20475c6"
+      }
+    }
+  },
+  "waybackurls": {
+    "repository": "tomnomnom/waybackurls",
+    "version": "v0.1.0",
+    "assets": {
+      "linux-x64": {
+        "url": "https://github.com/tomnomnom/waybackurls/releases/download/v0.1.0/waybackurls-linux-amd64-0.1.0.tgz",
+        "sha256": "884786132d11c8eb838fc88626dad96494207c79e436a72870a7d69f147500a6",
+        "upstreamChecksum": false,
+        "binarySha256": "da25f8f96987d59ceb85097ebd277cd79ec2f9e2e6d33bb391d42b8623f7d657"
+      },
+      "windows-x64": {
+        "url": "https://github.com/tomnomnom/waybackurls/releases/download/v0.1.0/waybackurls-windows-amd64-0.1.0.zip",
+        "sha256": "1b0d51d9d73c08b863fd15ef770524330bdf18ebbf5fb2c3a9d8e21c301e6729",
+        "upstreamChecksum": false,
+        "binarySha256": "874ca332378b6d02492ef20b74bd935b9e1604335a5e714ff8675b1f359a884d"
+      }
+    }
+  }
+}

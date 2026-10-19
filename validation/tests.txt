@@ -1,0 +1,47 @@
+
+> hunterkit-web@1.10.0 test
+> tsx --test --test-concurrency=1 tests/*.test.ts
+
+▶ HTTP API and production React interface use the real scan pipeline
+  ✔ create-project and exposed-panels return actual JSONL findings through IPC (572.122739ms)
+  ✔ failed input returns an explicit API error (11.516515ms)
+  ✔ browser creates a project with a full lab URL, runs Panels, and renders results (2020.523338ms)
+✔ HTTP API and production React interface use the real scan pipeline (3482.044047ms)
+▶ real scanners: complete project -> recon -> attack evidence -> clean rescan and failure states
+  ✔ exact project URL survives serialization and fresh scanner input preparation (468.026799ms)
+  ✔ full local recon runs real HTTPX and discovers GET form/query/JS without public archives (1239.664184ms)
+  ✔ General: real Nuclei executes requests and saves its matched evidence (769.215128ms)
+  ✔ Panels: real Nuclei executes requests and saves its matched evidence (424.298351ms)
+  ✔ Default login: real Nuclei executes requests and saves its matched evidence (455.458318ms)
+  ✔ Takeover signature: real Nuclei executes requests and saves its matched evidence (454.903744ms)
+  ✔ Exposure: real Nuclei executes requests and saves its matched evidence (432.113005ms)
+  ✔ CVE signature: real Nuclei executes requests and saves its matched evidence (459.440313ms)
+  ✔ LFI DAST: real Nuclei executes requests and saves its matched evidence (467.25947ms)
+  ✔ SQLi DAST: real Nuclei executes requests and saves its matched evidence (491.081614ms)
+  ✔ XSS: real Dalfox verifies unescaped reflection and aggregates a V finding (3575.488893ms)
+  ✔ JSLeak secrets and endpoints execute with real stdin tool input (32.787484ms)
+  ✔ screenshots use a real browser and generate a gallery (671.589765ms)
+  ✔ clean rescans remove earlier Nuclei and Dalfox findings (30065.677574ms)
+  ✔ a nonempty archive cannot hide current GET form parameters (15.458843ms)
+  ✔ missing parameter candidates are SKIPPED, never completed/clean (21.092423ms)
+  ✔ missing template profile fails visibly and cannot retain a stale previous finding (19.986112ms)
+  ✔ deadline reports PARTIAL and rejects simultaneous duplicate scans (1008.349944ms)
+✔ real scanners: complete project -> recon -> attack evidence -> clean rescan and failure states (41099.884479ms)
+✔ preserves exact scheme, port, path and query instead of reducing a lab to its hostname (2.023565ms)
+✔ hostname input remains compatible with HTTP and HTTPS discovery (0.629051ms)
+✔ URL input rejects embedded credentials, non-HTTP protocols and invalid ports (0.330863ms)
+✔ scopes historical URLs, external links and changed ports before active tools receive them (0.525477ms)
+✔ hostname scope includes discovered subdomains but excludes lookalike domains (0.24815ms)
+✔ IP and localhost targets do not allow arbitrary hostname suffixes (0.221918ms)
+✔ Nuclei statistics cannot turn into phantom findings when stdout is used (0.502448ms)
+✔ Dalfox reflections and static observations are separate from verified V findings (0.273543ms)
+✔ missing or malformed Dalfox reports raise an error instead of claiming a clean scan (0.247087ms)
+✔ concurrent scanners retain every details update (29.860291ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48290.491608

@@ -1,0 +1,31 @@
+{
+  "name": "hunterkit-web",
+  "version": "1.10.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n API,WEB -c auto \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "start": "npm run start -w backend",
+    "check:tools": "npm run check:tools -w backend",
+    "download:tools": "node scripts/download-original-tools.mjs",
+    "check:attacks": "node scripts/check-attack-profiles.mjs",
+    "setup:templates": "node scripts/setup-templates.mjs",
+    "setup": "npm ci && npm run download:tools && npm run setup:templates && npm run check:tools && npm run check:attacks",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 tests/integration.test.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "tar": "^7.4.3"
+  },
+  "engines": {
+    "node": ">=20.18.0"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+.tools/
+.runtime/
+.env
+projects/*
+!projects/.gitkeep
+bin/*
+!bin/.gitkeep
+*.tsbuildinfo
+*.log

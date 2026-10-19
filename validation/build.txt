@@ -1,0 +1,28 @@
+
+> hunterkit-web@1.10.0 build
+> npm run build -w frontend && npm run build -w backend
+
+
+> @hunterkit/frontend@1.10.0 build
+> tsc -b && vite build
+
+vite v6.0.5 building for production...
+transforming...
+✓ 1892 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                          0.35 kB │ gzip:   0.25 kB
+dist/assets/Mona-Sans-BuEDUD0r.woff2   137.14 kB
+dist/assets/Hubot-Sans-DLGyhQVu.woff2  170.16 kB
+dist/assets/index-CA2rUuyl.css         503.56 kB │ gzip:  66.08 kB
+dist/assets/index-utm8eaeh.js          793.61 kB │ gzip: 205.50 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.00s
+
+> @hunterkit/backend@1.10.0 build
+> tsc -p tsconfig.json
+

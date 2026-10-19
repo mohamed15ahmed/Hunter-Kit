@@ -1,0 +1,107 @@
+{
+  "generatedAt": "2026-10-19T16:28:39.402Z",
+  "target": "loopback HTTP signature fixture",
+  "budgetPerProcessMs": 30000,
+  "results": [
+    {
+      "key": "generalScanning",
+      "success": true,
+      "findings": 4,
+      "partial": true,
+      "completed": false,
+      "templates": 3269,
+      "requests": 545,
+      "requestErrors": 3,
+      "message": "General security scan: 4 scanner finding(s) from 1 selected target(s), 3269 template(s), 545 request(s).",
+      "error": null,
+      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
+    },
+    {
+      "key": "exposedPanels",
+      "success": true,
+      "findings": 1,
+      "partial": true,
+      "completed": false,
+      "templates": 1579,
+      "requests": 1048,
+      "requestErrors": 5,
+      "message": "Exposed panels scan: 1 scanner finding(s) from 1 selected target(s), 1579 template(s), 1048 request(s).",
+      "error": null,
+      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
+    },
+    {
+      "key": "subdomainTakeovers",
+      "success": true,
+      "findings": 1,
+      "partial": false,
+      "completed": true,
+      "templates": 72,
+      "requests": 8,
+      "requestErrors": 0,
+      "message": "Subdomain takeover scan: 1 scanner finding(s) from 1 selected target(s), 72 template(s), 8 request(s). Selected scan completed.",
+      "error": null
+    },
+    {
+      "key": "defaultCredentials",
+      "success": true,
+      "findings": 1,
+      "partial": false,
+      "completed": true,
+      "templates": 304,
+      "requests": 715,
+      "requestErrors": 0,
+      "message": "Default-login scan: 1 scanner finding(s) from 1 selected target(s), 304 template(s), 715 request(s). Selected scan completed.",
+      "error": null
+    },
+    {
+      "key": "exposures",
+      "success": true,
+      "findings": 1,
+      "partial": true,
+      "completed": false,
+      "templates": 709,
+      "requests": 1117,
+      "requestErrors": 2,
+      "message": "Exposure scan: 1 scanner finding(s) from 1 selected target(s), 709 template(s), 1117 request(s).",
+      "error": null,
+      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
+    },
+    {
+      "key": "scanningCVEs",
+      "success": true,
+      "findings": 10,
+      "partial": true,
+      "completed": false,
+      "templates": 4320,
+      "requests": 1791,
+      "requestErrors": 11,
+      "message": "Known vulnerabilities / CVE scan: 10 scanner finding(s) from 1 selected target(s), 4320 template(s), 1791 request(s).",
+      "error": null,
+      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
+    },
+    {
+      "key": "sqlInjection",
+      "success": true,
+      "findings": 1,
+      "partial": false,
+      "completed": true,
+      "templates": 1,
+      "requests": 25,
+      "requestErrors": 0,
+      "message": "SQL injection DAST scan: 1 scanner finding(s) from 3 selected target(s), 1 template(s), 25 request(s). Selected scan completed.",
+      "error": null
+    },
+    {
+      "key": "scanningForLFI",
+      "success": true,
+      "findings": 3,
+      "partial": false,
+      "completed": true,
+      "templates": 3,
+      "requests": 47,
+      "requestErrors": 0,
+      "message": "LFI scan: 3 scanner finding(s) from 3 selected target(s), 3 template(s), 47 request(s). Selected scan completed.",
+      "error": null
+    }
+  ]
+}
