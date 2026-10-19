@@ -94,7 +94,7 @@ export function networkCause(raw) {
     const text = raw.replace(/\x1b\[[0-9;]*m/g, '');
     if (/407|proxy authentication/i.test(text))
         return { code: 'PROXY_AUTH', message: 'The configured proxy requires authentication.' };
-    if (/no such host|ENOTFOUND|EAI_AGAIN|lookup .*failed|dns.*(?:fail|error)/i.test(text))
+    if (/no such host|no address found for host|ENOTFOUND|EAI_AGAIN|lookup .*failed|dns.*(?:fail|error)/i.test(text))
         return { code: 'DNS', message: 'The scanner could not resolve the target hostname.' };
     if (/certificate|x509|CERT_|tls.*(?:fail|error)|handshake/i.test(text))
         return { code: 'TLS', message: 'The HTTPS/TLS connection could not be established.' };

@@ -43,7 +43,7 @@ async function nucleiProbe(context, url, tag) {
     const seconds = Math.min(10, requestTimeoutSeconds());
     const args = [
         '-u', url, '-t', path.join(context.root, 'backend/assets/http-connectivity.yaml'),
-        '-duc', '-ni', '-nc', '-silent', '-jsonl', '-o', output, '-no-stdin',
+        '-duc', '-ni', '-nc', '-silent', '-jsonl', '-o', output, '-no-stdin', '-sr',
         '-timeout', String(seconds), '-retries', '0', '-c', '1', '-bs', '1', '-rl', '2', '-elog', errorLog,
         ...transport.args,
     ];
