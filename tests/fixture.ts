@@ -1,13 +1,12 @@
 // Loopback-only HTTP response fixtures, never a public scan target.
 // CVE/default-login/takeover pages mimic matcher signatures, not real deployed products.
 import http from 'node:http';
-export async function fixtureServer(port = 0) {
+export async function fixtureServer() {
   const state = { vulnerable: true, requests: [] as string[], slow: false };
   const server = http.createServer((req, res) => {
     state.requests.push(req.url || '/');
     const u = new URL(req.url || '/', 'http://localhost');
     let status = 200, type = 'text/html', body = '';
-    if (u.pathname.endsWith('/drop')) { req.socket.destroy(); return; }
     if (u.pathname === '/lab/' || u.pathname === '/') {
       body = `<html><title>HunterKit local fixture</title>
       <a href="/lab/sqli?id=1">SQLi</a><a href="/lab/lfi?file=welcome.txt">LFI</a>
@@ -16,8 +15,6 @@ export async function fixtureServer(port = 0) {
       <form action="http://outside.invalid/search"><input name="q" value="test"></form>
       <form action="/login" method="POST"><input type="password" name="pass"></form>
       ${state.vulnerable ? 'No Site For Domain' : ''}</html>`;
-    } else if (u.pathname === '/login') {
-      body = '<form action="/login" method="POST"><input name="user"><input type="password" name="pass"></form>';
     } else if (u.pathname === '/lab/search') {
       let q = u.searchParams.get('q') || '';
       if (!state.vulnerable) q = q.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -42,7 +39,7 @@ export async function fixtureServer(port = 0) {
     const send = () => { res.writeHead(status, { 'Content-Type': type }); res.end(body); };
     if (state.slow) setTimeout(send, 2000); else send();
   });
-  await new Promise<void>(resolve => server.listen(port, '::', resolve));
-  const actualPort = (server.address() as any).port;
-  return { state, base: `http://localhost:${actualPort}`, close: () => new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }) };
+  await new Promise<void>(resolve => server.listen(0, '::', resolve));
+  const port = (server.address() as any).port;
+  return { state, base: `http://localhost:${port}`, close: () => new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }) };
 }

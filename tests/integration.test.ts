@@ -90,19 +90,6 @@ test('real scanners: complete project -> recon -> attack evidence -> clean resca
       assert.equal((await fs.readFile(path.join(dir, 'exposed_panels.json'), 'utf8')).trim(), '');
       assert.ok(rows.filter(row => row['template-id'] === 'phpmyadmin-panel').every(row => row.sources.every((source: any) => source.module !== 'exposedPanels')));
     });
-    await t.test('Dalfox process deadline records incomplete coverage without a giant command error', async () => {
-      process.env.HUNTERKIT_SCAN_TIMEOUT_MS = '1000'; fixture.state.slow = true;
-      try {
-        const result = await core.scanningForXSS(dir);
-        assert.equal(result.success, true, JSON.stringify(result)); assert.equal(result.partial, true, JSON.stringify(result));
-        assert.doesNotMatch(result.message, /--input-type|--max-concurrent-targets/);
-        const details = await core.getDetails(name);
-        assert.equal(details.XSS.completed, false); assert.equal(details.XSS.completionState, 'partial');
-      } finally {
-        fixture.state.slow = false;
-        if (oldBudget === undefined) delete process.env.HUNTERKIT_SCAN_TIMEOUT_MS; else process.env.HUNTERKIT_SCAN_TIMEOUT_MS = oldBudget;
-      }
-    });
     await t.test('a nonempty archive cannot hide current GET form parameters', async () => {
       const fresh = await project('archive');
       await fs.writeFile(path.join(fresh, 'waybackurls_archive.txt'), fixture.base + '/old.js\nhttps://outside.invalid/x?id=1\n');

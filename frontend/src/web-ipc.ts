@@ -3,41 +3,8 @@ const ACTION_CHANNELS = new Set([
   'waybackurls-archive', 'waybackurls-js', 'waybackurls-parameter',
   'find-secrets', 'extra-links', 'general-scan', 'exposed-panels',
   'default-credentials', 'exposures', 'lfi', 'potential-xss', 'multi-scans',
-  'subdomain-takeovers', 'vulns-cves', 'connection-check',
+  'subdomain-takeovers', 'vulns-cves',
 ]);
-
-async function request(url: string, init?: RequestInit, timeout = 25000) {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    const payload = await response.json();
-    if (!response.ok) throw Object.assign(new Error(payload?.error || `Request failed (${response.status})`), { status: response.status });
-    return payload;
-  } finally { window.clearTimeout(timer); }
-}
-
-async function runTool(channel: string, args: any[]) {
-  const projectName = (Array.isArray(args[0]) ? args[0][0] : args[0])?.projectName;
-  const update = (job: any) => window.dispatchEvent(new CustomEvent('hunterkit-job-update', { detail: { ...job, channel, projectName } }));
-  try {
-    let job = await request('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, args }) });
-    let failures = 0;
-    while (true) {
-      update(job);
-      if (['completed', 'failed', 'cancelled'].includes(job.state)) return job.result;
-      await new Promise(resolve => window.setTimeout(resolve, 800));
-      try { job = await request(`/api/jobs/${encodeURIComponent(job.id)}`); failures = 0; }
-      catch (error: any) {
-        if (error.status === 404 || ++failures >= 3) throw error;
-        update({ ...job, message: 'Reconnecting to scan status...' });
-      }
-    }
-  } catch (error: any) {
-    const result = { success: false, message: 'Could not retrieve the tool job result.', error: error?.message || String(error) };
-    update({ state: 'failed', result }); return result;
-  }
-}
 
 const invoke = async (channel: string, ...args: any[]) => {
   if (channel === 'open-link') {
@@ -45,9 +12,45 @@ const invoke = async (channel: string, ...args: any[]) => {
     if (url) window.open(url.startsWith('http') ? url : `https://${url}`, '_blank', 'noopener,noreferrer');
     return true;
   }
-  if (ACTION_CHANNELS.has(channel)) return runTool(channel, args);
-  return request(`/api/ipc/${encodeURIComponent(channel)}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ args }),
-  }, channel === 'fetch-data' ? 45000 : 25000);
+
+  const controller = new AbortController();
+  // Tool jobs have their own backend process deadlines; this client deadline is only a final safety net.
+  const requestTimeout = ACTION_CHANNELS.has(channel) ? 15 * 60_000 : channel === 'fetch-data' ? 45_000 : 25_000;
+  const requestTimer = window.setTimeout(() => controller.abort(), requestTimeout);
+  try {
+    const response = await fetch(`/api/ipc/${encodeURIComponent(channel)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ args }),
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let payload: any;
+    try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }
+
+    if (!response.ok) {
+      const message = payload?.error || payload?.message || `Request failed (${response.status})`;
+      if (ACTION_CHANNELS.has(channel)) {
+        window.alert(message);
+        return { success: false, message: 'Tool execution failed', error: message };
+      }
+      throw new Error(message);
+    }
+
+    if (payload && typeof payload === 'object' && payload.success === false) {
+      const detail = payload.error ? `\n\n${payload.error}` : '';
+      window.alert(`${payload.message || 'Tool execution failed'}${detail}`);
+    }
+    return payload;
+  } catch (error: any) {
+    if (ACTION_CHANNELS.has(channel)) {
+      const message = error?.message || String(error);
+      window.alert(`Tool request failed\n\n${message}`);
+      return { success: false, message: 'Tool request failed', error: message };
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(requestTimer);
+  }
 };
 (window as any).electron = { ipcRenderer: { invoke, sendMessage: () => undefined, on: () => () => undefined, once: () => undefined } };

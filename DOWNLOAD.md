@@ -1,11 +1,11 @@
-# HunterKit fixed project — 1.11.0
+# HunterKit fixed project — 1.10.0 (active baseline)
 
-[Download HunterKit 1.11.0 ZIP](https://github.com/mohamed15ahmed/Hunter-Kit/raw/refs/heads/hunterkit-fixed-1.10.0/downloads/HunterKit-Fixed-1.11.0.zip)
+[Download the fixed project ZIP](https://github.com/mohamed15ahmed/Hunter-Kit/raw/refs/heads/hunterkit-fixed-1.10.0/downloads/HunterKit-Fixed-1.10.0.zip)
 
-Extract into a new directory, run `INSTALL-TOOLS.cmd`, then `START-HUNTERKIT.cmd` on Windows x64. Create a project with the exact target URL. On Attacks, use **Check target connection** before a large scan and **Download diagnostic report** if a scanner cannot connect. The installer downloads checksum-verified binaries and templates; they are not bundled in the ZIP.
+Extract the ZIP, run `INSTALL-TOOLS.cmd`, then `START-HUNTERKIT.cmd` on Windows x64. The installer downloads the pinned tool binaries and templates. Linux x64 instructions are in README.md.
 
-This update serializes tool jobs, resolves native attack proxy settings, preserves target ports and distinguishes failed connectivity, completed runs with request errors, interrupted runs and skipped tests. A zero count is not proof that the target is secure. Login sessions, POST/JSON and JavaScript workflows are not automatically covered.
+The full source is also available on this branch. See `FIX-REPORT.ar.md` and `validation/` for the fixes, 33 passing tests, installation checks, and limitations. Runtime execution was tested on Linux; Windows executable archive and binary hashes were verified, but Windows execution was not tested.
 
-Local Linux verification: build and 44 tests passed, none skipped, including real scanners, Chromium UI, screenshots, proxy/recovery and deadline tests. A separate installation and production scan passed in a path containing spaces. [GitHub verification passed on Windows and Linux](https://github.com/mohamed15ahmed/Hunter-Kit/actions/runs/39310214428), including Windows Edge browser tests in a checkout path containing spaces.
+The ZIP SHA-256 is in `downloads/HunterKit-Fixed-1.10.0.zip.sha256`.
 
-Full details: `FIX-REPORT.ar.md` and `validation/`. ZIP SHA-256: `downloads/HunterKit-Fixed-1.11.0.zip.sha256`.
+Version 1.11.0 has been withdrawn at the user's request. Work continues from the original 1.10.0 source and ZIP. The withdrawn update is retained on `archive/hunterkit-1.11.0-c24fc39` for reference only.

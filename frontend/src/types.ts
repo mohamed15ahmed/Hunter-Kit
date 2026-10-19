@@ -22,7 +22,6 @@ export interface ProjectDetails {
   // Basic project metadata
   name: string;
   domain: string;
-  targetUrl?: string;
 
   // Recon Jobs
   subfinder?: JobDetails;

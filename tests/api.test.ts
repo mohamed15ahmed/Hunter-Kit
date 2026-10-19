@@ -53,38 +53,12 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
       const traversal = await ipc('api-call', { projectName: name, location: '../.env', type: 'text/plain' });
       assert.equal(traversal.response.status, 500); assert.match(traversal.data.error, /Invalid path/);
     });
-    await t.test('background API deduplicates active scans and cancels pending work', async () => {
-      fixture.state.slow = true;
-      const submit = async (channel: string) => {
-        const response = await fetch(`${base}/api/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel, args: [{ projectName: name }] }) });
-        assert.equal(response.status, 202); return await response.json() as any;
-      };
-      try {
-        const first = await submit('exposed-panels');
-        assert.equal((await submit('exposed-panels')).id, first.id);
-        const pending = await submit('extra-links'); assert.equal(pending.state, 'queued');
-        const cancellation = await fetch(`${base}/api/jobs/${pending.id}`, { method: 'DELETE' });
-        assert.equal((await cancellation.json() as any).cancelled, true);
-        let finished: any;
-        for (let attempt = 0; attempt < 250; attempt++) {
-          finished = await (await fetch(`${base}/api/jobs/${first.id}`)).json();
-          if (['completed', 'failed'].includes(finished.state)) break;
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        assert.equal(finished.state, 'completed', JSON.stringify(finished));
-        assert.equal(finished.result.success, true);
-        assert.equal(finished.result.command, undefined);
-        const jobs = await (await fetch(`${base}/api/jobs?projectName=${name}`)).json() as any[];
-        assert.equal(jobs.find(job => job.id === pending.id)?.state, 'cancelled');
-      } finally { fixture.state.slow = false; }
-    });
     const frontendBuilt = await fs.access(path.join(ROOT, 'frontend/dist/index.html')).then(() => true, () => false);
     await t.test('browser creates a project with a full lab URL, runs Panels, and renders results', { skip: !process.env.HUNTERKIT_TEST_BROWSER || !frontendBuilt }, async () => {
       const browser = await chromium.launch({ executablePath: process.env.HUNTERKIT_TEST_BROWSER, headless: true, chromiumSandbox: true, env: { ...process.env, XDG_CONFIG_HOME: path.join(ROOT, '.runtime/config'), XDG_CACHE_HOME: path.join(ROOT, '.runtime/cache') } });
       try {
         const page = await browser.newPage();
         const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-        const dialogs: string[] = []; page.on('dialog', async dialog => { dialogs.push(dialog.message()); await dialog.dismiss(); });
         await page.goto(`${base}/projects`);
         await page.getByRole('button', { name: 'Create', exact: true }).click();
         await page.getByLabel('Project Name', { exact: true }).fill(uiName);
@@ -92,21 +66,20 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
         await page.getByRole('dialog').getByRole('button', { name: 'Create', exact: true }).click();
         await page.waitForURL(`**/${uiName}/dashboard`);
         await page.goto(`${base}/${uiName}/attacks`);
-        const panel = page.getByRole('heading', { name: 'Hunting Exposed panels', exact: true }).locator('../..');
-        await panel.getByRole('button', { name: 'Run scan' }).click();
-        await panel.getByTestId('attack-run-status').filter({ hasText: /scanner finding/ }).waitFor();
-        assert.equal(await page.getByRole('dialog').count(), 0);
+        const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/ipc/exposed-panels'));
+        await page.getByRole('heading', { name: 'Hunting Exposed panels', exact: true }).locator('../..').getByRole('button', { name: 'Run scan' }).click();
+        const result = await (await responsePromise).json(); assert.ok(result.result > 0, JSON.stringify(result));
         await page.goto(`${base}/${uiName}/attack-result`);
         await page.getByRole('cell', { name: 'phpmyadmin-panel', exact: true }).waitFor();
         assert.match(await page.locator('body').innerText(), /COMPLETED/);
         assert.match(await page.locator('body').innerText(), /exposedPanels/);
         await page.goto(`${base}/${uiName}/jsleaks`);
+        const linksResponse = page.waitForResponse(response => response.url().endsWith('/api/ipc/extra-links'));
         await page.getByRole('heading', { name: 'Find EndPoints', exact: true }).locator('../..').getByRole('button', { name: 'Process', exact: true }).click();
-        await page.getByRole('heading', { name: 'Find EndPoints', exact: true }).locator('../..').getByRole('button', { name: 'Process', exact: true }).waitFor();
+        const linksResult = await (await linksResponse).json(); assert.ok(linksResult.result > 0, JSON.stringify(linksResult));
         await page.getByRole('button', { name: 'Refresh saved JS results' }).click();
         await page.locator('pre').filter({ hasText: '/api/demo' }).waitFor();
         assert.deepEqual(errors, []);
-        assert.deepEqual(dialogs, []);
       } finally { await browser.close(); }
     });
   } finally {

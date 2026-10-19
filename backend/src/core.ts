@@ -11,8 +11,6 @@ import { fileURLToPath } from 'node:url';
 import { load } from 'cheerio';
 import { chromium } from 'playwright-core';
 import { parseTarget, targetSeeds, scopedUrls, isScopedUrl } from './targets.js';
-import { axiosTransport, scannerTransport, redactNetworkText, networkCause } from './network.js';
-import { assessConnections, reachableInputs, ConnectionFailure, requestTimeoutSeconds } from './connectivity.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..', '..');
@@ -45,7 +43,7 @@ export type RunResult = {
 };
 
 type ProcessResult = { code: number; stdout: string; stderr: string; command: string };
-type RunOptions = { timeout?: number; acceptedCodes?: number[]; cwd?: string; input?: string; env?: Record<string, string> };
+type RunOptions = { timeout?: number; acceptedCodes?: number[]; cwd?: string; input?: string };
 
 export function safeProjectName(name: string) {
   if (!name || !/^[A-Za-z0-9._ -]{1,80}$/.test(name) || name.includes('..')) throw new Error('Invalid project name');
@@ -93,7 +91,7 @@ async function writeLines(file: string, lines: string[]) {
 }
 async function hasInput(file: string) { return (await readLines(file)).length > 0; }
 function resultObj(result: number, filePath: string) { return { result, run: true, filePath, date: new Date().toUTCString() }; }
-function displayCommand(command: string, args: string[]) { return [command, ...args].map(redactNetworkText).map(x => /\s/.test(x) ? `"${x}"` : x).join(' '); }
+function displayCommand(command: string, args: string[]) { return [command, ...args].map(x => /\s/.test(x) ? `"${x}"` : x).join(' '); }
 function errorText(error: any) { return error?.message || String(error); }
 
 function normalizeHost(value: string) {
@@ -108,7 +106,7 @@ async function runProcess(command: string, args: string[], opts: RunOptions = {}
   const timeout = opts.timeout ?? 180000;
   const accepted = opts.acceptedCodes ?? [0];
   return new Promise((resolve, reject) => {
-    const runtimeEnv = { ...process.env, ...opts.env };
+    const runtimeEnv = { ...process.env };
     // Go scanners honor XDG directories; keep runtime state writable and inside the project.
     if (process.platform !== 'win32') {
       runtimeEnv.XDG_CONFIG_HOME ||= path.join(ROOT, '.runtime', 'config');
@@ -133,9 +131,9 @@ async function runProcess(command: string, args: string[], opts: RunOptions = {}
       // Do not wait for a stubborn child process to emit `close`. The caller must regain control at the configured deadline.
       finishReject(Object.assign(new Error(`Timed out after ${Math.round(timeout / 1000)}s: ${displayCommand(command, args)}`), { stdout, stderr, timedOut: true, command: displayCommand(command, args) }));
     }, timeout);
-    child.stdout?.on('data', d => { stdout += redactNetworkText(String(d)); if (stdout.length > 150 * 1024 * 1024) stdout = stdout.slice(-150 * 1024 * 1024); });
-    child.stderr?.on('data', d => { stderr += redactNetworkText(String(d)); if (stderr.length > 20 * 1024 * 1024) stderr = stderr.slice(-20 * 1024 * 1024); });
-    child.on('error', err => { clearTimeout(timer); finishReject(new Error(`${displayCommand(command, args)}: ${redactNetworkText(err.message)}`)); });
+    child.stdout?.on('data', d => { stdout += String(d); if (stdout.length > 150 * 1024 * 1024) stdout = stdout.slice(-150 * 1024 * 1024); });
+    child.stderr?.on('data', d => { stderr += String(d); if (stderr.length > 20 * 1024 * 1024) stderr = stderr.slice(-20 * 1024 * 1024); });
+    child.on('error', err => { clearTimeout(timer); finishReject(new Error(`${displayCommand(command, args)}: ${err.message}`)); });
     child.on('close', code => {
       clearTimeout(timer);
       if (timedOut) return;
@@ -272,12 +270,12 @@ async function probeOneHost(host: string): Promise<ProbeEvidence> {
   for (const candidate of candidates) {
     try {
       const r: any = await axios.get(candidate, {
-        ...await axiosTransport(candidate, true),
         timeout: 6000,
         maxRedirects: 6,
         validateStatus: () => true,
         responseType: 'stream',
         headers: browserHeaders,
+        httpsAgent: insecureHttpsAgent,
       });
       try { r?.data?.destroy?.(); } catch {}
       const finalUrl = r?.request?.res?.responseUrl || r?.request?._redirectable?._currentUrl || candidate;
@@ -319,12 +317,9 @@ async function scannerHttpCandidates(dir: string, maxTargets: number): Promise<{
   const seeds = targetSeeds(details);
   const cached = scopedUrls(await readLines(path.join(dir, 'httpx_live_domains.txt')), details);
   // Preserve the exact user-supplied URL first, even if Recon cached only an origin.
-  const targets = details?.explicitScheme ? [...seeds, ...cached] : cached.length ? [...cached] : [...seeds];
-  if (!details?.explicitScheme && !cached.length) {
-    for (const host of await candidateHosts(dir, maxTargets)) {
-      if (host === normalizeHost(details.domain)) continue;
-      targets.push(`http://${host}`, `https://${host}`);
-    }
+  const targets = [...seeds, ...cached];
+  if (!details?.explicitScheme) {
+    for (const host of await candidateHosts(dir, maxTargets)) targets.push(`http://${host}`, `https://${host}`);
   }
   return { targets: scopedUrls(targets, details).slice(0, maxTargets), verified: cached.length };
 }
@@ -362,16 +357,14 @@ async function currentUrlInventory(dir: string): Promise<{ urls: string[]; error
   const seen = new Set<string>();
   const urls = new Set<string>(seeds);
   const errors: string[] = [];
-  let postForms = 0, getForms = 0, passwordForms = 0;
   while (queue.length && seen.size < 12) {
     const target = queue.shift()!;
     if (seen.has(target) || !isScopedUrl(target, details)) continue;
     seen.add(target);
     try {
       const r: any = await axios.get(target, {
-        ...await axiosTransport(target, true),
         timeout: 7000, maxRedirects: 5, validateStatus: () => true, responseType: 'text',
-        headers: browserHeaders, maxContentLength: 3 * 1024 * 1024,
+        headers: browserHeaders, httpsAgent: insecureHttpsAgent, maxContentLength: 3 * 1024 * 1024,
         // Reject redirects outside the project before sending a follow-up request.
         beforeRedirect: (options: any) => {
           const next = `${options.protocol}//${options.hostname}${options.port ? ':' + options.port : ''}${options.path}`;
@@ -383,11 +376,6 @@ async function currentUrlInventory(dir: string): Promise<{ urls: string[]; error
       urls.add(finalUrl);
       const contentType = String(r?.headers?.['content-type'] || '');
       if (/html|javascript|text\//i.test(contentType) && typeof r.data === 'string') {
-        const page = load(r.data);
-        page('form').each((_i, element) => {
-          if ((page(element).attr('method') || 'get').toLowerCase() === 'get') getForms++; else postForms++;
-          if (page(element).find('input[type="password"]').length) passwordForms++;
-        });
         for (const found of scopedUrls(extractUrlsFromHtml(r.data, finalUrl), details)) {
           urls.add(found);
           if (!seen.has(found) && queue.length < 20 && seen.size + queue.length < 12) queue.push(found);
@@ -398,8 +386,7 @@ async function currentUrlInventory(dir: string): Promise<{ urls: string[]; error
   const out = scopedUrls(Array.from(urls), details);
   await writeLines(path.join(dir, 'current_url_inventory.txt'), out);
   await fsp.writeFile(path.join(dir, 'current_url_inventory_status.json'), JSON.stringify({
-    generatedAt: new Date().toISOString(), seeds, pagesFetched: seen.size - errors.length, urls: out.length, parameterUrls: out.filter(url => new URL(url).search.length > 1).length, getForms, postForms, passwordForms, errors,
-    authenticatedSession: false, javascriptExecuted: false, pageLimit: 12,
+    generatedAt: new Date().toISOString(), seeds, urls: out.length, errors,
   }, null, 2), 'utf8');
   return { urls: out, errors };
 }
@@ -903,18 +890,6 @@ function scanSpecLabel(spec: NucleiAttackSpec, templatePaths: string[]) {
   return 'selected Nuclei templates';
 }
 
-export async function checkTargetConnection(dir: string, force = true) {
-  const candidates = await scannerHttpCandidates(dir, 8);
-  const report = await assessConnections({ dir, root: ROOT, nuclei: toolPath('nuclei'), run: runProcess }, candidates.targets, force);
-  return { success: report.ready, error: report.ready ? null : 'No selected HTTP(S) origin passed the native scanner connection check.', message: report.ready ? 'Native scanner connectivity confirmed.' : 'Target connectivity needs attention.', report };
-}
-
-async function requireScannerInputs(dir: string, targets: string[]) {
-  const report = await assessConnections({ dir, root: ROOT, nuclei: toolPath('nuclei'), run: runProcess }, targets);
-  if (!report.ready) throw new ConnectionFailure(report);
-  return { report, targets: reachableInputs(targets, report) };
-}
-
 async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
   const txt = path.join(dir, spec.file);
   const json = txt.replace(/\.txt$/i, '.json');
@@ -934,17 +909,11 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     if (spec.templateDirs?.length && !templatePaths.length) {
       throw new Error(`No templates for ${spec.label} at ${root}. Run npm run setup:templates.`);
     }
-    await updateDetails(dir, { [spec.key]: { ...resultObj(0, txt), running: true, phase: 'checking-connection', completed: false } });
-    const connection = await requireScannerInputs(dir, prepared.targets);
-    prepared.targets = connection.targets;
-    await writeLines(prepared.file, prepared.targets);
-    const transport = await scannerTransport(prepared.targets, 'nuclei');
-    await updateDetails(dir, { [spec.key]: { ...resultObj(0, txt), running: true, phase: 'scanning', completed: false } });
     const args = [
       '-l', prepared.file, '-jsonl', '-o', rawOutput, '-nc', '-duc', '-ni',
       '-ud', root, '-pt', 'http', '-exclude-tags', 'dos,fuzz,bruteforce',
-      '-timeout', String(requestTimeoutSeconds()), '-retries', '1', '-mhe', '30', '-c', '2', '-bs', '2', '-rl', '10', '-sr', '-no-stdin',
-      '-stats-json', '-si', '5', '-elog', path.join(logs, `${spec.key}-nuclei-errors.log`), ...transport.args,
+      '-timeout', '8', '-retries', '0', '-mhe', '30', '-c', '8', '-bs', '8', '-rl', '40',
+      '-stats-json', '-si', '5', '-elog', path.join(logs, `${spec.key}-nuclei-errors.log`),
     ];
     if (spec.severity) args.push('-severity', spec.severity);
     if (spec.automatic) args.push('-as');
@@ -960,7 +929,7 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     let proc: ProcessResult;
     let partial = false;
     let timeoutMessage = '';
-    try { proc = await runProcess(toolPath('nuclei'), args, { timeout: budgetMs, env: transport.env }); }
+    try { proc = await runProcess(toolPath('nuclei'), args, { timeout: budgetMs }); }
     catch (e: any) {
       if (!e.timedOut) throw e;
       partial = true; timeoutMessage = errorText(e);
@@ -980,22 +949,18 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
       throw new Error(`Nuclei executed no applicable requests (${loaded} template(s), ${requests ?? 'unknown'} requests). Check template selection, parameter inputs, and the scanner log.`);
     }
     if (!partial && !rows.length && requests && requestErrors! >= requests) {
-      const rawErrors = await fsp.readFile(path.join(logs, `${spec.key}-nuclei-errors.log`), 'utf8').catch(() => '');
-      const cause = networkCause(rawErrors);
-      throw Object.assign(new Error(`${cause.message} All selected scan requests failed; see Connection details and the ${spec.key} request log.`), { blocked: true, code: cause.code });
+      throw new Error(`All ${requests} Nuclei requests failed. Check the target URL, port, network and logs/${spec.key}-nuclei-errors.log.`);
     }
     // Even a normally exited engine can have failed requests. Keep coverage loss visible.
-    if (requests === undefined) partial = true;
-    const completedWithErrors = !partial && Boolean(requestErrors);
-    const completionState = partial ? 'partial' : completedWithErrors ? 'completed-with-errors' : 'completed';
+    if (requestErrors || requests === undefined) partial = true;
     await fsp.writeFile(json, rows.map(r => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : ''));
     await writeLines(txt, rows.map(nucleiSummaryLine));
     const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
     const selector = scanSpecLabel(spec, templatePaths);
     const meta = {
-      ...resultObj(rows.length, txt), partial, running: false, phase: 'finished', completionState, targets: prepared.targets.length,
+      ...resultObj(rows.length, txt), partial, running: false, targets: prepared.targets.length,
       selector, elapsedSeconds, completed: !partial, templates: loaded, requests, requestErrors,
-      warning: partial ? (timeoutMessage ? 'The process time budget ended before the scanner finished.' : 'Request statistics are unavailable; completion is unverified.') : completedWithErrors ? `The scanner finished, but ${requestErrors} requests failed. Check the request log; those checks have incomplete coverage.` : connection.report.targets.some(target => !target.allowed) ? 'Unreachable HTTP(S) origins were excluded after connectivity checks.' : undefined,
+      warning: partial ? timeoutMessage || 'Scanner request statistics show errors or are unavailable; coverage is incomplete.' : undefined,
     };
     await updateDetails(dir, { [spec.key]: meta });
     await fsp.writeFile(statusFile, JSON.stringify({
@@ -1005,15 +970,15 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     }, null, 2));
     return {
       success: true, error: null, partial, result: rows.length, outputFile: txt, stderr: proc.stderr, command: proc.command,
-      message: `${spec.label}: ${rows.length} scanner finding(s) from ${prepared.targets.length} selected target(s), ${loaded} template(s), ${requests ?? 'unknown'} request(s). ${partial ? 'PARTIAL: ' + (timeoutMessage ? 'Time budget reached; see the scanner log.' : 'Completion statistics are unavailable.') : completedWithErrors ? `Finished with ${requestErrors} request errors; review their log.` : 'Selected scan completed.'}`,
+      message: `${spec.label}: ${rows.length} scanner finding(s) from ${prepared.targets.length} selected target(s), ${loaded} template(s), ${requests ?? 'unknown'} request(s). ${partial ? 'PARTIAL: ' + (timeoutMessage || 'Some requests failed.') : 'Selected scan completed.'}`,
     };
   } catch (error: any) {
     const msg = errorText(error);
     await saveToolLog(dir, `${spec.key}-nuclei-error`, [msg, error?.stdout, error?.stderr].filter(Boolean).join('\n')).catch(() => undefined);
-    const meta = { ...resultObj(0, txt), running: false, completed: false, completionState: error?.skipped ? 'skipped' : error?.blocked ? 'blocked' : 'failed', blocked: Boolean(error?.blocked), errorCode: error?.code, failed: !error?.skipped, skipped: Boolean(error?.skipped), error: msg, elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) };
+    const meta = { ...resultObj(0, txt), running: false, completed: false, failed: !error?.skipped, skipped: Boolean(error?.skipped), error: msg, elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) };
     await updateDetails(dir, { [spec.key]: meta }).catch(() => undefined);
     await fsp.writeFile(statusFile, JSON.stringify(meta, null, 2)).catch(() => undefined);
-    return { message: error?.skipped ? `${spec.label} SKIPPED` : `${spec.label} could not complete`, success: Boolean(error?.skipped), skipped: Boolean(error?.skipped), blocked: Boolean(error?.blocked), error: msg, outputFile: txt };
+    return { message: error?.skipped ? `${spec.label} SKIPPED` : `${spec.label} could not complete`, success: Boolean(error?.skipped), skipped: Boolean(error?.skipped), error: msg, outputFile: txt };
   }
 }
 
@@ -1087,67 +1052,40 @@ async function dalfoxScan(dir: string, key: string, file: string) {
     const params = path.join(dir, 'waybackurls_parameter.txt');
     if (!(await hasInput(params))) await parameter(dir);
     const details = await readJson(path.join(dir, 'details.json'));
-    let candidates = scopedUrls([...targetSeeds(details), ...await readLines(params)], details).filter(x => new URL(x).search.length > 1).slice(0, 25);
+    const candidates = scopedUrls([...targetSeeds(details), ...await readLines(params)], details).filter(x => new URL(x).search.length > 1).slice(0, 25);
     if (!candidates.length) {
       const reason = 'No parameterized URLs were discovered. Supply a target URL with a query string or a page containing GET forms, then refresh Parameters.';
       await fsp.writeFile(json, JSON.stringify({ meta: { candidates: 0, skipped: true, reason }, findings: [] }, null, 2));
       await updateDetails(dir, { [key]: { ...resultObj(0, txt), running: false, skipped: true, candidates: 0, completed: false, warning: reason } });
       return { message: `XSS scan SKIPPED: ${reason}`, success: true, skipped: true, error: null, result: 0, outputFile: txt };
     }
-    await updateDetails(dir, { [key]: { ...resultObj(0, txt), running: true, phase: 'checking-connection', completed: false } });
-    const connection = await requireScannerInputs(dir, candidates);
-    candidates = connection.targets;
-    const transport = await scannerTransport(candidates, 'dalfox');
     const version = await runProcess(toolPath('dalfox'), ['--version'], { timeout: 7000 });
     if (!/dalfox\s+(?:v)?3\./i.test(version.stdout + version.stderr)) throw new Error('HunterKit requires Dalfox v3. Run npm run download:tools to install the tested version.');
     const input = path.join(dir, '.dalfox-xss-input.txt');
     await writeLines(input, candidates);
     const args = [
       'scan', input, '--input-type', 'file', '-f', 'json', '-o', json,
-      '--no-color', '--dedup-urls', 'signature', '--scan-timeout', '60', '--timeout', String(requestTimeoutSeconds()),
-      '--rate-limit', '10', '--retries', '1', '--workers', '4', '--max-concurrent-targets', '1',
-      '--skip-mining', ...transport.args,
+      '--no-color', '--dedup-urls', 'signature', '--scan-timeout', '60', '--timeout', '8',
+      '--rate-limit', '20', '--retries', '0', '--workers', '10', '--max-concurrent-targets', '3',
+      '--skip-mining',
     ];
-    await updateDetails(dir, { [key]: { ...resultObj(0, txt), running: true, phase: 'scanning', completed: false } });
-    const budgetMs = Number(process.env.HUNTERKIT_SCAN_TIMEOUT_MS || 180000);
-    if (!Number.isFinite(budgetMs) || budgetMs < 1000 || budgetMs > 600000) throw new Error('HUNTERKIT_SCAN_TIMEOUT_MS must be between 1000 and 600000 milliseconds.');
     let proc: ProcessResult;
-    let processTimedOut = false;
-    try { proc = await runProcess(toolPath('dalfox'), args, { timeout: budgetMs, acceptedCodes: [0, 1, 2], env: transport.env }); }
+    try { proc = await runProcess(toolPath('dalfox'), args, { timeout: 180000, acceptedCodes: [0, 1] }); }
     catch (error: any) {
       await saveToolLog(dir, `${key}-dalfox`, [error?.stdout, error?.stderr, errorText(error)].filter(Boolean).join('\n'));
-      if (!error.timedOut) throw error;
-      processTimedOut = true;
-      proc = { code: 2, stdout: error.stdout || '', stderr: error.stderr || '', command: error.command || displayCommand(toolPath('dalfox'), args) };
+      throw error;
     }
     await saveToolLog(dir, `${key}-dalfox`, [proc.stdout, proc.stderr].filter(Boolean).join('\n'));
-    let report: ReturnType<typeof parseDalfoxEnvelope>;
-    try { report = parseDalfoxEnvelope((await fsp.readFile(json, 'utf8').catch(() => '')) || proc.stdout); }
-    catch {
-      if (processTimedOut) {
-        const warning = 'The process time budget ended before Dalfox wrote a complete report. No clean-scan conclusion can be drawn; see logs/XSS-dalfox.log.';
-        await updateDetails(dir, { [key]: { ...resultObj(0, txt), running: false, completed: false, partial: true, completionState: 'partial', candidates: candidates.length, warning } });
-        return { message: `XSS PARTIAL: ${warning}`, success: true, partial: true, error: null, result: 0, outputFile: txt };
-      }
-      const detail = redactNetworkText(proc.stderr).split(/\r?\n/).find(line => /error:|unrecognized|unknown|invalid/i.test(line));
-      throw new Error(`Dalfox did not produce a valid report (exit ${proc.code}). ${detail || 'See logs/XSS-dalfox.log for the process output.'}`);
-    }
-    const total = Number(report.meta?.total_requests || 0), failed = Number(report.meta?.failed_requests || 0);
-    const unreachable = report.meta?.target_summary?.length && report.meta.target_summary.every((row: any) => /unreachable|timeout|failed|error/i.test(row.status));
-    if (!processTimedOut && !report.findings.length && (unreachable || (total > 0 && failed >= total))) {
-      const cause = networkCause(proc.stderr + '\n' + proc.stdout);
-      throw Object.assign(new Error(`Dalfox could not reach the selected URLs. ${cause.message} See Connection details and logs/XSS-dalfox.log.`), { blocked: true, code: cause.code });
-    }
-    const partial = processTimedOut || report.incomplete || proc.code === 2;
-    const completedWithErrors = !partial && Number(report.meta?.failed_requests || 0) > 0;
+    const report = parseDalfoxEnvelope((await fsp.readFile(json, 'utf8')) || proc.stdout);
+    const partial = report.incomplete || Number(report.meta?.failed_requests || 0) > 0;
     if (!partial && !report.findings.length && Number(report.meta?.total_requests) === 0) throw new Error('Dalfox sent no requests. Review the input URLs and scanner log.');
     await writeLines(txt, report.findings.map(f => `[${f.severity || 'high'}] ${f.param || ''} ${f.evidence || f.message_str || ''}`.trim()));
     const meta = {
       ...resultObj(report.findings.length, txt), candidates: candidates.length, running: false,
-      partial, completed: !partial, phase: 'finished', completionState: partial ? 'partial' : completedWithErrors ? 'completed-with-errors' : 'completed', observations: report.observations.length,
+      partial, completed: !partial, observations: report.observations.length,
       requests: report.meta?.total_requests, requestErrors: report.meta?.failed_requests,
       elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
-      warning: partial ? 'Dalfox reported an incomplete scan. Review the raw report and log.' : completedWithErrors ? 'Dalfox finished with failed requests; their coverage is incomplete.' : undefined,
+      warning: partial ? 'Dalfox reported incomplete coverage or failed requests. Review the raw report and log.' : undefined,
     };
     await updateDetails(dir, { [key]: meta });
     await fsp.writeFile(path.join(dir, `${key}-scan-status.json`), JSON.stringify({ ...meta, command: proc.command, inputFile: input }, null, 2));
@@ -1155,10 +1093,10 @@ async function dalfoxScan(dir: string, key: string, file: string) {
   } catch (error: any) {
     const msg = errorText(error);
     await saveToolLog(dir, `${key}-dalfox-error`, msg).catch(() => undefined);
-    const meta = { ...resultObj(0, txt), running: false, completed: false, completionState: error?.blocked ? 'blocked' : 'failed', blocked: Boolean(error?.blocked), errorCode: error?.code, failed: true, partial: Boolean(error?.timedOut), error: msg };
+    const meta = { ...resultObj(0, txt), running: false, completed: false, failed: true, partial: Boolean(error?.timedOut), error: msg };
     await updateDetails(dir, { [key]: meta }).catch(() => undefined);
     await fsp.writeFile(path.join(dir, `${key}-scan-status.json`), JSON.stringify(meta, null, 2)).catch(() => undefined);
-    return { message: error?.blocked ? 'Dalfox connection needs attention' : 'Dalfox scan failed', success: false, blocked: Boolean(error?.blocked), error: msg, outputFile: txt };
+    return { message: 'Dalfox scan failed', success: false, error: msg, outputFile: txt };
   }
 }
 export async function scanningForXSS(dir: string) { return exclusiveAttack(dir, 'XSS', () => dalfoxScan(dir, 'XSS', 'XSS.txt')); }
@@ -1289,26 +1227,6 @@ export async function attackResults(name: string) {
     } catch {}
   }
   return rows;
-}
-
-export async function projectDiagnostics(name: string) {
-  const dir = projectPath(name), details = await getDetails(name);
-  const keys = [...Object.values(ATTACK_SPECS).map(spec => spec.key), 'XSS'];
-  const logs: Record<string, string> = {};
-  for (const key of keys) {
-    for (const suffix of ['-nuclei-errors.log', '-nuclei-error.log', '-dalfox.log', '-dalfox-error.log']) {
-      const file = `${key}${suffix}`;
-      const data = await fsp.readFile(path.join(dir, 'logs', file), 'utf8').catch(() => '');
-      if (data) logs[file] = redactNetworkText(data.slice(-6000)).replace(/((?:proxy-)?authorization|(?:set-)?cookie)(["']?\s*[:=]\s*)[^\r\n]+/gi, '$1$2[redacted]');
-    }
-  }
-  return {
-    version: '1.11.0', generatedAt: new Date().toISOString(),
-    project: { name: details.name, domain: details.domain, targetUrl: details.targetUrl || null },
-    connection: await readJson(path.join(dir, 'logs/connection-report.json')),
-    discovery: await readJson(path.join(dir, 'current_url_inventory_status.json')),
-    scans: Object.fromEntries(keys.filter(key => details[key]).map(key => [key, details[key]])), logs,
-  };
 }
 
 export async function apiCall(name: string, location: string, type: string) {

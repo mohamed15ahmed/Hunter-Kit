@@ -1,8 +1,0 @@
-{
-  "freshZipExtraction": true,
-  "npmSetup": "PASS",
-  "productionNpmStart": "PASS",
-  "productionFrontendRequest": "PASS",
-  "productionPanelScan": "PASS",
-  "findings": 1
-}
