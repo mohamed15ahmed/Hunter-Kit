@@ -46,10 +46,19 @@ type ProcessResult = { code: number; stdout: string; stderr: string; command: st
 type RunOptions = { timeout?: number; acceptedCodes?: number[]; cwd?: string; input?: string };
 
 export function safeProjectName(name: string) {
-  if (!name || !/^[A-Za-z0-9._ -]{1,80}$/.test(name) || name.includes('..')) throw new Error('Invalid project name');
+  const value = typeof name === 'string' ? name : '';
+  const validShape = /^[A-Za-z0-9_-](?:[A-Za-z0-9._ -]{0,78}[A-Za-z0-9_-])?$/.test(value);
+  const windowsDevice = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(value);
+  if (!validShape || value.includes('..') || windowsDevice) {
+    throw new Error('Invalid project name. Use 1-80 letters, numbers, spaces, dashes, underscores or single dots; do not start/end with a space or dot.');
+  }
   return name;
 }
-export function projectPath(name: string) { return path.join(PROJECT_DIR, safeProjectName(name)); }
+export function projectPath(name: string) {
+  const result = path.resolve(PROJECT_DIR, safeProjectName(name));
+  if (path.dirname(result) !== path.resolve(PROJECT_DIR)) throw new Error('Invalid project path');
+  return result;
+}
 export function toolPath(tool: string) {
   const exe = os.platform() === 'win32' ? `${tool}.exe` : tool;
   const bundled = path.join(BIN_DIR, exe);
@@ -69,11 +78,20 @@ export async function updateDetails(dir: string, updates: Record<string, any>) {
   detailWrites.set(dir, write);
   try { await write; } finally { if (detailWrites.get(dir) === write) detailWrites.delete(dir); }
 }
-const attackJobs = new Set<string>();
+const attackJobs = new Map<string, string>();
 async function exclusiveAttack(dir: string, key: string, run: () => Promise<any>) {
-  const id = `${dir}|${key}`;
-  if (attackJobs.has(id)) return { success: false, message: 'This scanner is already running for this project.', error: 'Wait for the existing scan to finish.' };
-  attackJobs.add(id);
+  const id = path.resolve(dir);
+  const active = attackJobs.get(id);
+  if (active) {
+    return {
+      success: false,
+      busy: true,
+      activeScanner: active,
+      message: `Another attack scanner (${active}) is already running for this project.`,
+      error: 'Wait for it to finish before starting a different attack scan.',
+    };
+  }
+  attackJobs.set(id, key);
   try { return await run(); } finally { attackJobs.delete(id); }
 }
 export async function countLines(file: string) { try { return (await readLines(file)).length; } catch { return 0; } }

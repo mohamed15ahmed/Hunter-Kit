@@ -27,12 +27,13 @@ export default function JsLeaks() {
   };
 
   const getDetails = async () => {
-    const res = await window.electron.ipcRenderer.invoke(
-      'get-project-details',
-      projectSlug,
-    );
-    setDetails(res);
-    console.log(res);
+    try {
+      const res = await window.electron.ipcRenderer.invoke('get-project-details', projectSlug);
+      setDetails(res);
+    } catch (requestError: any) {
+      setDetails(undefined);
+      setError(requestError?.message || String(requestError));
+    }
   };
 
   useEffect(() => {

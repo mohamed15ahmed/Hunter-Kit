@@ -1,20 +1,80 @@
 import express from 'express';
-import cors from 'cors';
 import path from 'node:path';
 import fs from 'node:fs';
 import dotenv from 'dotenv';
 import * as core from './core.js';
 dotenv.config({ path: path.join(core.ROOT, '.env') });
 const app = express();
-app.use(cors());
+const localHost = (value) => {
+    try {
+        const hostname = new URL(`http://${value}`).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+        return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
+    }
+    catch {
+        return false;
+    }
+};
+export const allowedBrowserOrigin = (origin) => {
+    try {
+        const url = new URL(origin);
+        return url.protocol === 'http:' && localHost(url.host);
+    }
+    catch {
+        return false;
+    }
+};
+// A public web page must not be able to drive the local scanner or read its project files.
+// Requests without Origin are retained for the CLI/tests; browsers send Origin on cross-origin POSTs.
+app.use((req, res, next) => {
+    if (!req.headers.host || !localHost(req.headers.host)) {
+        res.status(403).json({ error: 'HunterKit only accepts local host requests.' });
+        return;
+    }
+    const origin = req.headers.origin;
+    if (origin && !allowedBrowserOrigin(origin)) {
+        res.status(403).json({ error: 'HunterKit rejected a non-local browser origin.' });
+        return;
+    }
+    if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    if (req.method === 'OPTIONS') {
+        res.status(204).end();
+        return;
+    }
+    next();
+});
 app.use(express.json({ limit: '2mb' }));
 app.use('/project-files', express.static(core.PROJECT_DIR));
 const first = (args) => Array.isArray(args?.[0]) ? args[0][0] : args?.[0];
+const projectActionChannels = new Set([
+    'subfinder-process', 'recon-all', 'httpx-live-domain', 'httpx-screens',
+    'waybackurls-archive', 'waybackurls-js', 'waybackurls-parameter',
+    'find-secrets', 'extra-links', 'general-scan', 'exposed-panels',
+    'default-credentials', 'exposures', 'lfi', 'potential-xss', 'multi-scans',
+    'subdomain-takeovers', 'vulns-cves',
+]);
+const activeProjectJobs = new Map();
 app.post('/api/ipc/:channel', async (req, res) => {
+    let lockedProject;
     try {
         const c = req.params.channel;
         const args = req.body?.args || [];
         const a = first(args) || {};
+        if (projectActionChannels.has(c)) {
+            const project = core.projectPath(a.projectName);
+            const active = activeProjectJobs.get(project);
+            if (active) {
+                res.status(409).json({ success: false, busy: true, activeChannel: active, message: `Another tool (${active}) is already running for this project.`, error: 'Wait for it to finish before starting another tool.' });
+                return;
+            }
+            activeProjectJobs.set(project, c);
+            lockedProject = project;
+        }
         let out;
         switch (c) {
             case 'list-projects':
@@ -102,6 +162,10 @@ app.post('/api/ipc/:channel', async (req, res) => {
     catch (e) {
         console.error(e);
         res.status(500).json({ error: e?.message || String(e) });
+    }
+    finally {
+        if (lockedProject)
+            activeProjectJobs.delete(lockedProject);
     }
 });
 app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'HunterKit Web Backend', projectDir: core.PROJECT_DIR, binDir: core.BIN_DIR }));

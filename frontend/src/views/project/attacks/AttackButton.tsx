@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '../../../components/ui/button';
 import { toast } from '../../../components/ui/use-toast';
 import { ProjectDetails } from '../../../types';
+import { useAttackRun } from './AttackRunContext';
 
 type Props = {
   details: ProjectDetails;
@@ -11,12 +12,14 @@ type Props = {
 };
 
 export default function AttackButton({ details, channel, idleLabel = 'Process' }: Props) {
-  const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<any>(null);
+  const { activeChannel, setActiveChannel } = useAttackRun();
+  const loading = activeChannel === channel;
+  const anotherScanIsRunning = activeChannel !== null && !loading;
 
   const run = async () => {
-    if (!details.name || loading) return;
-    setLoading(true);
+    if (!details.name || activeChannel) return;
+    setActiveChannel(channel);
     try {
       const res = await window.electron.ipcRenderer.invoke(channel, { projectName: details.name });
       setLastResult(res);
@@ -39,16 +42,17 @@ export default function AttackButton({ details, channel, idleLabel = 'Process' }
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setActiveChannel(null);
     }
   };
 
-  return <div className="flex flex-col gap-2 w-full">{loading ? (
-    <Button disabled>
+  return <div className="flex flex-col gap-2 w-full">
+    <Button onClick={run} disabled={loading || anotherScanIsRunning}>
+      {loading ? <>
       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       Running...
+      </> : anotherScanIsRunning ? 'Wait for current scan' : idleLabel}
     </Button>
-  ) : <Button onClick={run}>{idleLabel}</Button>}
     {lastResult && <p role="status" className={`text-xs break-words ${lastResult.success === false ? 'text-red-400' : 'text-muted-foreground'}`}>{lastResult.message}{lastResult.error ? ` ${lastResult.error}` : ''}</p>}
   </div>;
 }

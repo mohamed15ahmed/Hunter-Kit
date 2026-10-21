@@ -1,4 +1,18 @@
-# تقرير مراجعة وإصلاح HunterKit 1.10.0
+# تقرير مراجعة وإصلاح HunterKit 1.10.1
+
+## مراجعة النسخة المعتمدة الجديدة
+
+ملف ZIP الذي أُرسل للمراجعة يطابق نسخة 1.10.0 السابقة بصمةً ومحتوى، ولذلك استُخدم وحده كنقطة بداية ولم تُدمج تغييرات النسخة 1.11.0 الملغاة. أضيفت في 1.10.1 إصلاحات مؤكدة ظهرت من المراجعة الأوسع:
+
+- منع تشغيل أكثر من أداة على المشروع نفسه في الوقت نفسه، مع رفض فوري HTTP 409 بدل queue أو تحميل مستمر؛ والواجهة تعطل بقية أزرار Attack حتى تنتهي الأداة الحالية.
+- إزالة نوافذ `alert` الكبيرة والمكررة، وإظهار الأخطاء في toast والنص الدائم داخل الصفحة.
+- منع صفحات الويب الخارجية من استدعاء API المحلي أو قراءة ملفات المشاريع عبر تقييد `Origin` و`Host` إلى localhost/127.0.0.1.
+- رفض أسماء المشاريع التي قد تشير إلى جذر `projects` أو أسماء أجهزة Windows المحجوزة.
+- تحديث شجرة الاعتماديات وإزالة التحذيرات الأمنية المعروفة؛ نتيجة `npm audit` للـlockfile النهائي: 0.
+- إصلاح تحقق Node والأدوات في سكربتات Windows، ومنع Vite من الانتقال الصامت إلى منفذ غير 5173.
+- إصلاح سكربت full-profile نفسه ليعمل بالتتابع ويشمل Dalfox، بعد أن كشف منع التوازي أن السكربت القديم قد يبدأ التنظيف وأداة أخرى ما زالت تكتب.
+
+التحقق النهائي المسجل: build للواجهة والـbackend، 36/36 اختبارًا بدون فشل أو تخطٍ، متصفح Chromium حقيقي، وكل أدوات Nuclei/Dalfox/HTTPX/Subfinder/WaybackURLs/JSLeak، بالإضافة إلى جولة profiles الكاملة الموضحة أدناه.
 
 ## النتيجة
 
@@ -38,7 +52,7 @@
 
 1. تثبيت npm dependencies وإنشاء package-lock؛ بناء TypeScript وVite.
 2. تنزيل وتشغيل البرامج الفعلية: Nuclei3.11.1، Dalfox3.2.4، HTTPX1.12.0، Subfinder2.17.0، WaybackURLs0.1.0، JSLeak1.0.0. تنزيل ملفات Windows x64 أيضًا للتحقق من الأرشيف والـ executable digest، بدون ادعاء تشغيلها على Windows.
-3. نجح **33 اختبارًا، بدون فشل أو تخطٍ في جولة التحقق المسجلة**: unit وreal-tool integration، تشغيل API فعلي، واختبار React في Chromium: إنشاء مشروع بعنوان كامل، تشغيل Panels من الزر، ظهور الدليل ومصدره، وتشغيل JS endpoints وعرضها.
+3. نجح **36 اختبارًا، بدون فشل أو تخطٍ في جولة التحقق المسجلة**: unit وreal-tool integration، تشغيل API فعلي، واختبار React في Chromium: إنشاء مشروع بعنوان كامل، تشغيل Panels من الزر، تعطيل بقية أزرار الهجوم أثناء عمله، ظهور الدليل ومصدره، وتشغيل JS endpoints وعرضها.
 4. الصور تُنتَج فعليًا بمتصفح Chromium. احتاجت حاوية الاختبار wrapper مؤقتًا لتشغيل المتصفح بدون sandbox الخاص به داخل الحاوية المعزولة؛ هذا ليس الإعداد الافتراضي للتطبيق وليس ضمن ملفات التشغيل الموزعة.
 5. إعادة فحص هدف fixture بعد تحويل XSS إلى HTML مهرب وإزالة panel signature أعادت نتائج تلك الأدوات إلى0، مع بقاء مصادر modules الأخرى موضحة.
 6. اختبارات missing templates، no parameters، timeout، duplicate requests، scope filtering، concurrent metadata وmalformed JSON.
@@ -53,16 +67,17 @@
 
 | Module | Loaded templates | Requests observed | Findings | State |
 |---|---:|---:|---:|---|
-| generalScanning | 3269 | 545 | 4 | PARTIAL |
+| generalScanning | 3269 | 1205 | 2 | PARTIAL |
 | exposedPanels | 1579 | 1048 | 1 | PARTIAL |
 | subdomainTakeovers | 72 | 8 | 1 | COMPLETED |
 | defaultCredentials | 304 | 715 | 1 | COMPLETED |
-| exposures | 709 | 1117 | 1 | PARTIAL |
-| scanningCVEs | 4320 | 1791 | 10 | PARTIAL |
-| sqlInjection | 1 | 25 | 1 | COMPLETED |
+| exposures | 709 | 1117 | 3 | PARTIAL |
+| scanningCVEs | 4322 | 1792 | 10 | PARTIAL |
+| sqlInjection | 2 | 58 | 1 | COMPLETED |
 | scanningForLFI | 3 | 47 | 3 | COMPLETED |
+| XSS / Dalfox | — | 72 | 1 verified | COMPLETED |
 
-SQLi حمّل قالبًا واحدًا من ملفين لأن قالب time-based يستبعده ملف `.nuclei-ignore` الأصلي. لم ألغِ هذا الاستبعاد. الفحوص الكبيرة سجلت PARTIAL وحفظت نتائجها؛ لا ادعاء بأنها فحصت كل قالب/رابط حتى النهاية. الإحصاءات عند المهلة هي آخر snapshot متاح وقد تكون أقل من العدد النهائي لحظيًا.
+الفحوص الكبيرة سجلت PARTIAL وحفظت نتائجها عند مهلة smoke test القصيرة (30 ثانية)؛ لا ادعاء بأنها فحصت كل قالب/رابط حتى النهاية. الإحصاءات عند المهلة هي آخر snapshot متاح وقد تكون أقل من العدد النهائي لحظيًا.
 
 ## ما لم يُختبر وما لا يمكن ضمانه
 

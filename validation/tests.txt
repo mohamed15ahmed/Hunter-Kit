@@ -1,47 +1,50 @@
 
-> hunterkit-web@1.10.0 test
+> hunterkit-web@1.10.1 test
 > tsx --test --test-concurrency=1 tests/*.test.ts
 
 ▶ HTTP API and production React interface use the real scan pipeline
-  ✔ create-project and exposed-panels return actual JSONL findings through IPC (572.122739ms)
-  ✔ failed input returns an explicit API error (11.516515ms)
-  ✔ browser creates a project with a full lab URL, runs Panels, and renders results (2020.523338ms)
-✔ HTTP API and production React interface use the real scan pipeline (3482.044047ms)
+  ✔ local API rejects public browser origins before they can run tools or read projects (8.004677ms)
+  ✔ create-project and exposed-panels return actual JSONL findings through IPC (495.106292ms)
+  ✔ failed input returns an explicit API error (15.753382ms)
+  ✔ API rejects a second project tool immediately instead of queueing concurrent scanners (2436.598573ms)
+  ✔ browser creates a project with a full lab URL, runs Panels, and renders results (3883.838833ms)
+✔ HTTP API and production React interface use the real scan pipeline (7450.911285ms)
 ▶ real scanners: complete project -> recon -> attack evidence -> clean rescan and failure states
-  ✔ exact project URL survives serialization and fresh scanner input preparation (468.026799ms)
-  ✔ full local recon runs real HTTPX and discovers GET form/query/JS without public archives (1239.664184ms)
-  ✔ General: real Nuclei executes requests and saves its matched evidence (769.215128ms)
-  ✔ Panels: real Nuclei executes requests and saves its matched evidence (424.298351ms)
-  ✔ Default login: real Nuclei executes requests and saves its matched evidence (455.458318ms)
-  ✔ Takeover signature: real Nuclei executes requests and saves its matched evidence (454.903744ms)
-  ✔ Exposure: real Nuclei executes requests and saves its matched evidence (432.113005ms)
-  ✔ CVE signature: real Nuclei executes requests and saves its matched evidence (459.440313ms)
-  ✔ LFI DAST: real Nuclei executes requests and saves its matched evidence (467.25947ms)
-  ✔ SQLi DAST: real Nuclei executes requests and saves its matched evidence (491.081614ms)
-  ✔ XSS: real Dalfox verifies unescaped reflection and aggregates a V finding (3575.488893ms)
-  ✔ JSLeak secrets and endpoints execute with real stdin tool input (32.787484ms)
-  ✔ screenshots use a real browser and generate a gallery (671.589765ms)
-  ✔ clean rescans remove earlier Nuclei and Dalfox findings (30065.677574ms)
-  ✔ a nonempty archive cannot hide current GET form parameters (15.458843ms)
-  ✔ missing parameter candidates are SKIPPED, never completed/clean (21.092423ms)
-  ✔ missing template profile fails visibly and cannot retain a stale previous finding (19.986112ms)
-  ✔ deadline reports PARTIAL and rejects simultaneous duplicate scans (1008.349944ms)
-✔ real scanners: complete project -> recon -> attack evidence -> clean rescan and failure states (41099.884479ms)
-✔ preserves exact scheme, port, path and query instead of reducing a lab to its hostname (2.023565ms)
-✔ hostname input remains compatible with HTTP and HTTPS discovery (0.629051ms)
-✔ URL input rejects embedded credentials, non-HTTP protocols and invalid ports (0.330863ms)
-✔ scopes historical URLs, external links and changed ports before active tools receive them (0.525477ms)
-✔ hostname scope includes discovered subdomains but excludes lookalike domains (0.24815ms)
-✔ IP and localhost targets do not allow arbitrary hostname suffixes (0.221918ms)
-✔ Nuclei statistics cannot turn into phantom findings when stdout is used (0.502448ms)
-✔ Dalfox reflections and static observations are separate from verified V findings (0.273543ms)
-✔ missing or malformed Dalfox reports raise an error instead of claiming a clean scan (0.247087ms)
-✔ concurrent scanners retain every details update (29.860291ms)
-ℹ tests 33
+  ✔ exact project URL survives serialization and fresh scanner input preparation (470.458826ms)
+  ✔ full local recon runs real HTTPX and discovers GET form/query/JS without public archives (1177.180184ms)
+  ✔ General: real Nuclei executes requests and saves its matched evidence (451.122525ms)
+  ✔ Panels: real Nuclei executes requests and saves its matched evidence (404.100645ms)
+  ✔ Default login: real Nuclei executes requests and saves its matched evidence (427.967171ms)
+  ✔ Takeover signature: real Nuclei executes requests and saves its matched evidence (447.313484ms)
+  ✔ Exposure: real Nuclei executes requests and saves its matched evidence (417.349227ms)
+  ✔ CVE signature: real Nuclei executes requests and saves its matched evidence (436.860398ms)
+  ✔ LFI DAST: real Nuclei executes requests and saves its matched evidence (441.75372ms)
+  ✔ SQLi DAST: real Nuclei executes requests and saves its matched evidence (445.084452ms)
+  ✔ XSS: real Dalfox verifies unescaped reflection and aggregates a V finding (3571.923666ms)
+  ✔ JSLeak secrets and endpoints execute with real stdin tool input (29.302391ms)
+  ✔ screenshots use a real browser and generate a gallery (574.685118ms)
+  ✔ clean rescans remove earlier Nuclei and Dalfox findings (30108.836073ms)
+  ✔ a nonempty archive cannot hide current GET form parameters (11.542981ms)
+  ✔ missing parameter candidates are SKIPPED, never completed/clean (18.147877ms)
+  ✔ missing template profile fails visibly and cannot retain a stale previous finding (32.785606ms)
+  ✔ deadline reports PARTIAL and rejects simultaneous duplicate scans (1015.222047ms)
+✔ real scanners: complete project -> recon -> attack evidence -> clean rescan and failure states (40506.649503ms)
+✔ preserves exact scheme, port, path and query instead of reducing a lab to its hostname (1.729709ms)
+✔ hostname input remains compatible with HTTP and HTTPS discovery (0.205099ms)
+✔ URL input rejects embedded credentials, non-HTTP protocols and invalid ports (0.367474ms)
+✔ scopes historical URLs, external links and changed ports before active tools receive them (0.321685ms)
+✔ hostname scope includes discovered subdomains but excludes lookalike domains (0.25866ms)
+✔ IP and localhost targets do not allow arbitrary hostname suffixes (0.330659ms)
+✔ project names are portable and cannot alias the project root on Windows or POSIX (0.698454ms)
+✔ Nuclei statistics cannot turn into phantom findings when stdout is used (0.396558ms)
+✔ Dalfox reflections and static observations are separate from verified V findings (0.410179ms)
+✔ missing or malformed Dalfox reports raise an error instead of claiming a clean scan (0.27182ms)
+✔ concurrent scanners retain every details update (21.03282ms)
+ℹ tests 36
 ℹ suites 0
-ℹ pass 33
+ℹ pass 36
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 48290.491608
+ℹ duration_ms 51621.262661

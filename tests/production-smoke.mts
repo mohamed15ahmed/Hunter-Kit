@@ -17,14 +17,13 @@ try {
     ['defaultCredentials', core.defaultCredentials], ['subdomainTakeovers', core.subdomainTakeovers],
     ['exposures', core.scanningForExposures], ['scanningCVEs', core.scanningCVEs],
     ['scanningForLFI', core.scanningForLFI], ['sqlInjection', core.scanningForSQLi],
+    ['XSS', core.scanningForXSS],
   ] as const;
-  for (let i = 0; i < jobs.length; i += 2) {
-    await Promise.all(jobs.slice(i, i + 2).map(async ([key, run]) => {
-      const result = await run(dir);
-      const meta = (await core.getDetails(name))[key];
-      const row = { key, success: result.success, findings: result.result ?? 0, partial: meta.partial || false, completed: meta.completed, templates: meta.templates, requests: meta.requests, requestErrors: meta.requestErrors, message: result.message, error: result.error };
-      summary.push(row); console.log(JSON.stringify(row));
-    }));
+  for (const [key, run] of jobs) {
+    const result = await run(dir);
+    const meta = (await core.getDetails(name))[key] || {};
+    const row = { key, success: result.success, findings: result.result ?? 0, partial: meta.partial || false, completed: meta.completed, templates: meta.templates, requests: meta.requests, requestErrors: meta.requestErrors, message: result.message, error: result.error };
+    summary.push(row); console.log(JSON.stringify(row));
   }
   const output = path.join(core.ROOT, 'validation'); await fs.mkdir(output, { recursive: true });
   await fs.writeFile(path.join(output, 'production-profiles.json'), JSON.stringify({ generatedAt: new Date().toISOString(), target: 'loopback HTTP signature fixture', budgetPerProcessMs: 30000, results: summary }, null, 2));

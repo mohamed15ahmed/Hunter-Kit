@@ -2,6 +2,8 @@
 setlocal
 cd /d "%~dp0"
 where node >nul 2>nul || (echo [ERROR] Install Node.js 20.18+ first.& pause & exit /b 1)
+node -e "const [major,minor]=process.versions.node.split('.').map(Number);process.exit(major>20||(major===20&&minor>=18)?0:1)"
+if errorlevel 1 (echo [ERROR] Node.js 20.18 or newer is required.& pause & exit /b 1)
 echo [1/5] Installing locked npm dependencies...
 call npm ci
 if errorlevel 1 goto failed

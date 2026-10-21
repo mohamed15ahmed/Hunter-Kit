@@ -12,8 +12,9 @@ export default function SubFinderJob(details: ProjectDetails) {
   const [Loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const RunSubFinder = async () => {
+    if (Loading) return;
     setLoading(true);
-    if (details) {
+    try {
       const res = await window.electron.ipcRenderer.invoke(
         'subfinder-process',
         {
@@ -21,13 +22,10 @@ export default function SubFinderJob(details: ProjectDetails) {
           domain,
         },
       );
-      if (res?.success !== false) {
-        toast({
-          title: res?.message || 'Subdomain discovery completed',
-        });
-      }
-    }
-    setLoading(false);
+      toast({ title: res?.message || 'Subdomain discovery completed', description: res?.error || undefined, variant: res?.success === false ? 'destructive' : undefined });
+    } catch (error: any) {
+      toast({ title: 'Tool request failed', description: error?.message || String(error), variant: 'destructive' });
+    } finally { setLoading(false); }
   };
   return (
     <>

@@ -37,6 +37,14 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     assert.equal(healthy, true, log);
+    await t.test('local API rejects public browser origins before they can run tools or read projects', async () => {
+      const rejected = await fetch(`${base}/api/health`, { headers: { Origin: 'https://attacker.example' } });
+      assert.equal(rejected.status, 403);
+      assert.match((await rejected.json() as any).error, /non-local browser origin/i);
+      const local = await fetch(`${base}/api/health`, { headers: { Origin: 'http://127.0.0.1:5173' } });
+      assert.equal(local.status, 200);
+      assert.equal(local.headers.get('access-control-allow-origin'), 'http://127.0.0.1:5173');
+    });
     await t.test('create-project and exposed-panels return actual JSONL findings through IPC', async () => {
       const created = await ipc('create-project', { projectName: name, domain: fixture.base + '/lab/' });
       assert.equal(created.data.error, false, JSON.stringify(created.data));
@@ -53,12 +61,27 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
       const traversal = await ipc('api-call', { projectName: name, location: '../.env', type: 'text/plain' });
       assert.equal(traversal.response.status, 500); assert.match(traversal.data.error, /Invalid path/);
     });
+    await t.test('API rejects a second project tool immediately instead of queueing concurrent scanners', async () => {
+      fixture.state.slow = true;
+      const firstRun = fetch(`${base}/api/ipc/exposed-panels`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ args: [{ projectName: name }] }),
+      });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const competing = await ipc('vulns-cves', { projectName: name });
+      assert.equal(competing.response.status, 409);
+      assert.equal(competing.data.busy, true);
+      assert.match(competing.data.message, /already running/);
+      const firstResponse = await firstRun;
+      assert.equal(firstResponse.ok, true, await firstResponse.text());
+      fixture.state.slow = false;
+    });
     const frontendBuilt = await fs.access(path.join(ROOT, 'frontend/dist/index.html')).then(() => true, () => false);
     await t.test('browser creates a project with a full lab URL, runs Panels, and renders results', { skip: !process.env.HUNTERKIT_TEST_BROWSER || !frontendBuilt }, async () => {
       const browser = await chromium.launch({ executablePath: process.env.HUNTERKIT_TEST_BROWSER, headless: true, chromiumSandbox: true, env: { ...process.env, XDG_CONFIG_HOME: path.join(ROOT, '.runtime/config'), XDG_CACHE_HOME: path.join(ROOT, '.runtime/cache') } });
       try {
         const page = await browser.newPage();
         const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+        const dialogs: string[] = []; page.on('dialog', async dialog => { dialogs.push(dialog.message()); await dialog.dismiss(); });
         await page.goto(`${base}/projects`);
         await page.getByRole('button', { name: 'Create', exact: true }).click();
         await page.getByLabel('Project Name', { exact: true }).fill(uiName);
@@ -67,8 +90,12 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
         await page.waitForURL(`**/${uiName}/dashboard`);
         await page.goto(`${base}/${uiName}/attacks`);
         const responsePromise = page.waitForResponse(response => response.url().endsWith('/api/ipc/exposed-panels'));
+        fixture.state.slow = true;
         await page.getByRole('heading', { name: 'Hunting Exposed panels', exact: true }).locator('../..').getByRole('button', { name: 'Run scan' }).click();
+        const cveButton = page.getByRole('heading', { name: 'Scanning for Known Vulns and CVEs', exact: true }).locator('../..').getByRole('button');
+        assert.equal(await cveButton.isDisabled(), true, 'other attack buttons must be disabled while a scan is running');
         const result = await (await responsePromise).json(); assert.ok(result.result > 0, JSON.stringify(result));
+        fixture.state.slow = false;
         await page.goto(`${base}/${uiName}/attack-result`);
         await page.getByRole('cell', { name: 'phpmyadmin-panel', exact: true }).waitFor();
         assert.match(await page.locator('body').innerText(), /COMPLETED/);
@@ -80,6 +107,7 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
         await page.getByRole('button', { name: 'Refresh saved JS results' }).click();
         await page.locator('pre').filter({ hasText: '/api/demo' }).waitFor();
         assert.deepEqual(errors, []);
+        assert.deepEqual(dialogs, [], 'tool errors/results must use non-blocking UI instead of browser alert dialogs');
       } finally { await browser.close(); }
     });
   } finally {

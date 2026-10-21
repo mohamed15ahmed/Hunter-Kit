@@ -9,18 +9,16 @@ export default function EndPoints(details: ProjectDetails) {
   const [Loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const RunEndPoints = async () => {
+    if (Loading) return;
     setLoading(true);
-    if (details) {
+    try {
       const res = await window.electron.ipcRenderer.invoke('extra-links', {
         projectName: name,
       });
-      if (res?.success !== false) {
-        toast({
-          title: res?.message || 'Endpoint discovery completed',
-        });
-      }
-    }
-    setLoading(false);
+      toast({ title: res?.message || 'Endpoint discovery completed', description: res?.error || undefined, variant: res?.success === false ? 'destructive' : undefined });
+    } catch (error: any) {
+      toast({ title: 'Tool request failed', description: error?.message || String(error), variant: 'destructive' });
+    } finally { setLoading(false); }
   };
   return (
     // eslint-disable-next-line react/jsx-no-useless-fragment

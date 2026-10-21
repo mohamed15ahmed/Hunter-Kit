@@ -28,16 +28,18 @@ export default function Recon() {
   const { toast } = useToast();
 
   const getDetails = async () => {
-    const res = await window.electron.ipcRenderer.invoke(
-      'get-project-details',
-      projectSlug,
-    );
-    setDetails(res);
+    try {
+      const res = await window.electron.ipcRenderer.invoke('get-project-details', projectSlug);
+      setDetails(res);
+    } catch (error: any) {
+      setDetails(undefined);
+      toast({ title: 'Could not load this project', description: error?.message || String(error), variant: 'destructive' });
+    }
   };
 
   useEffect(() => {
     getDetails();
-  }, []);
+  }, [projectSlug]);
 
   const runFullRecon = async () => {
     if (!details?.name) return;

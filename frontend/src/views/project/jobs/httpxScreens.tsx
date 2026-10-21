@@ -12,18 +12,16 @@ export default function HttpxScreensJob(details: ProjectDetails) {
   const [Loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const RunHttpxScreens = async () => {
+    if (Loading) return;
     setLoading(true);
-    if (details) {
+    try {
       const res = await window.electron.ipcRenderer.invoke('httpx-screens', {
         projectName: name,
       });
-      if (res?.success !== false) {
-        toast({
-          title: res?.message || 'Screenshot capture completed',
-        });
-      }
-    }
-    setLoading(false);
+      toast({ title: res?.message || 'Screenshot capture completed', description: res?.error || undefined, variant: res?.success === false ? 'destructive' : undefined });
+    } catch (error: any) {
+      toast({ title: 'Tool request failed', description: error?.message || String(error), variant: 'destructive' });
+    } finally { setLoading(false); }
   };
   return (
     <>

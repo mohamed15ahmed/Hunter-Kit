@@ -19,17 +19,22 @@ import VulnsCves from './attacks/vulns&Cves';
 import Lfi from './attacks/lfi';
 import PotentialXss from './attacks/potentialXss';
 import SqlInjection from './attacks/sqlInjection';
+import { AttackRunProvider } from './attacks/AttackRunContext';
 
 export default function Attacks() {
   const [details, setDetails] = useState<ProjectDetails>();
+  const [error, setError] = useState('');
   const { projectSlug } = useParams();
 
   const getDetails = async () => {
-    const res = await window.electron.ipcRenderer.invoke(
-      'get-project-details',
-      projectSlug,
-    );
-    setDetails(res);
+    try {
+      const res = await window.electron.ipcRenderer.invoke('get-project-details', projectSlug);
+      setDetails(res);
+      setError('');
+    } catch (requestError: any) {
+      setDetails(undefined);
+      setError(requestError?.message || String(requestError));
+    }
   };
   useEffect(() => {
     getDetails();
@@ -38,7 +43,9 @@ export default function Attacks() {
     <div className="flex flex-col gap-4">
       <h1 className="font-bold text-3xl">Attacks</h1>
       <p className="text-sm text-gray-400">Each module scans a limited set of selected inputs. Panel detections and exposures are scanner observations; review their evidence. See Attack Results for completion status, request counts and failures.</p>
+      {error && <p className="rounded border border-red-500/40 bg-red-950/30 p-3 text-sm text-red-300">Could not load this project: {error}</p>}
       {details && (
+        <AttackRunProvider>
         <div>
           <h2 className="font-bold text-2xl mb-4 text-center">General</h2>
           <div className="mb-8">
@@ -147,6 +154,7 @@ export default function Attacks() {
             </div>
           </div>
         </div>
+        </AttackRunProvider>
       )}
     </div>
   );

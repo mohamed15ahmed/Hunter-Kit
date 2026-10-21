@@ -9,16 +9,16 @@ export default function Secrets(details: ProjectDetails) {
   const [Loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const RunSecrets = async () => {
+    if (Loading) return;
     setLoading(true);
-    const res = await window.electron.ipcRenderer.invoke('find-secrets', {
-      projectName: name,
-    });
-    if (res?.success !== false) {
-      toast({
-        title: res?.message || 'Secret scan completed',
+    try {
+      const res = await window.electron.ipcRenderer.invoke('find-secrets', {
+        projectName: name,
       });
-    }
-    setLoading(false);
+      toast({ title: res?.message || 'Secret scan completed', description: res?.error || undefined, variant: res?.success === false ? 'destructive' : undefined });
+    } catch (error: any) {
+      toast({ title: 'Tool request failed', description: error?.message || String(error), variant: 'destructive' });
+    } finally { setLoading(false); }
   };
   return (
     // eslint-disable-next-line react/jsx-no-useless-fragment

@@ -1,0 +1,17 @@
+
+> hunterkit-web@1.10.1 check:attacks
+> node scripts/check-attack-profiles.mjs
+
+
+HunterKit attack profile diagnostics
+Templates: /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates
+✓ General (common HTTP)      3278 template(s)
+✓ Exposed panels             1581 template(s)
+✓ Default logins              307 template(s)
+✓ Subdomain takeovers          73 template(s)
+✓ Exposures                   711 template(s)
+✓ CVE scan                   4354 template(s)
+✓ LFI DAST                      3 template(s)
+✓ SQLi DAST                     2 template(s)
+
+Counts show installed templates before runtime severity/tag/protocol filters. Actual loaded/request counts are saved per scan. LFI/SQLi require parameter URLs; XSS requires Dalfox v3.

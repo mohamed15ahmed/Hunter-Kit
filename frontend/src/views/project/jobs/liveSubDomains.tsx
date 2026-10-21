@@ -12,16 +12,16 @@ export default function LiveSubdomainsJob(details: ProjectDetails) {
   const [Loading, setLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const RunLiveSubDomains = async () => {
+    if (Loading) return;
     setLoading(true);
-    const res = await window.electron.ipcRenderer.invoke('httpx-live-domain', {
-      projectName: name,
-    });
-    if (res?.success !== false) {
-      toast({
-        title: res?.message || 'Live-host probing completed',
+    try {
+      const res = await window.electron.ipcRenderer.invoke('httpx-live-domain', {
+        projectName: name,
       });
-    }
-    setLoading(false);
+      toast({ title: res?.message || 'Live-host probing completed', description: res?.error || undefined, variant: res?.success === false ? 'destructive' : undefined });
+    } catch (error: any) {
+      toast({ title: 'Tool request failed', description: error?.message || String(error), variant: 'destructive' });
+    } finally { setLoading(false); }
   };
   return (
     <>

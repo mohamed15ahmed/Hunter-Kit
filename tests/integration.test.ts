@@ -115,8 +115,12 @@ test('real scanners: complete project -> recon -> attack evidence -> clean resca
     });
     await t.test('deadline reports PARTIAL and rejects simultaneous duplicate scans', async () => {
       process.env.HUNTERKIT_SCAN_TIMEOUT_MS = '1000'; fixture.state.slow = true;
-      const first = core.exposedPanels(dir); const duplicate = await core.exposedPanels(dir);
+      const first = core.exposedPanels(dir);
+      const duplicate = await core.exposedPanels(dir);
+      const competingModule = await core.scanningCVEs(dir);
       assert.equal(duplicate.success, false); assert.match(duplicate.message, /already running/);
+      assert.equal(competingModule.success, false); assert.equal(competingModule.busy, true);
+      assert.match(competingModule.message, /already running/);
       const res = await first; assert.equal(res.partial, true, JSON.stringify(res));
       assert.equal((await core.getDetails(name)).exposedPanels.completed, false);
       fixture.state.slow = false;

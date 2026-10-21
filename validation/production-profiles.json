@@ -1,20 +1,19 @@
 {
-  "generatedAt": "2026-10-19T16:28:39.402Z",
+  "generatedAt": "2026-10-20T17:30:53.747Z",
   "target": "loopback HTTP signature fixture",
   "budgetPerProcessMs": 30000,
   "results": [
     {
       "key": "generalScanning",
       "success": true,
-      "findings": 4,
+      "findings": 2,
       "partial": true,
       "completed": false,
       "templates": 3269,
-      "requests": 545,
+      "requests": 1205,
       "requestErrors": 3,
-      "message": "General security scan: 4 scanner finding(s) from 1 selected target(s), 3269 template(s), 545 request(s).",
-      "error": null,
-      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
+      "message": "General security scan: 2 scanner finding(s) from 1 selected target(s), 3269 template(s), 1205 request(s). PARTIAL: Timed out after 30s: /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/nuclei -l /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/.nuclei-generalScanning-input.txt -jsonl -o /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/generalScanning-nuclei.raw.jsonl -nc -duc -ni -ud /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates -pt http -exclude-tags dos,fuzz,bruteforce -timeout 8 -retries 0 -mhe 30 -c 8 -bs 8 -rl 40 -stats-json -si 5 -elog /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/generalScanning-nuclei-errors.log -t /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates/http/misconfiguration -t /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates/http/exposures -t /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates/http/exposed-panels",
+      "error": null
     },
     {
       "key": "exposedPanels",
@@ -24,21 +23,8 @@
       "completed": false,
       "templates": 1579,
       "requests": 1048,
-      "requestErrors": 5,
-      "message": "Exposed panels scan: 1 scanner finding(s) from 1 selected target(s), 1579 template(s), 1048 request(s).",
-      "error": null,
-      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
-    },
-    {
-      "key": "subdomainTakeovers",
-      "success": true,
-      "findings": 1,
-      "partial": false,
-      "completed": true,
-      "templates": 72,
-      "requests": 8,
-      "requestErrors": 0,
-      "message": "Subdomain takeover scan: 1 scanner finding(s) from 1 selected target(s), 72 template(s), 8 request(s). Selected scan completed.",
+      "requestErrors": 9,
+      "message": "Exposed panels scan: 1 scanner finding(s) from 1 selected target(s), 1579 template(s), 1048 request(s). PARTIAL: Timed out after 30s: /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/nuclei -l /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/.nuclei-exposedPanels-input.txt -jsonl -o /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/exposedPanels-nuclei.raw.jsonl -nc -duc -ni -ud /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates -pt http -exclude-tags dos,fuzz,bruteforce -timeout 8 -retries 0 -mhe 30 -c 8 -bs 8 -rl 40 -stats-json -si 5 -elog /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/exposedPanels-nuclei-errors.log -t /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates/http/exposed-panels",
       "error": null
     },
     {
@@ -54,17 +40,28 @@
       "error": null
     },
     {
-      "key": "exposures",
+      "key": "subdomainTakeovers",
       "success": true,
       "findings": 1,
+      "partial": false,
+      "completed": true,
+      "templates": 72,
+      "requests": 8,
+      "requestErrors": 0,
+      "message": "Subdomain takeover scan: 1 scanner finding(s) from 1 selected target(s), 72 template(s), 8 request(s). Selected scan completed.",
+      "error": null
+    },
+    {
+      "key": "exposures",
+      "success": true,
+      "findings": 3,
       "partial": true,
       "completed": false,
       "templates": 709,
       "requests": 1117,
       "requestErrors": 2,
-      "message": "Exposure scan: 1 scanner finding(s) from 1 selected target(s), 709 template(s), 1117 request(s).",
-      "error": null,
-      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
+      "message": "Exposure scan: 3 scanner finding(s) from 1 selected target(s), 709 template(s), 1117 request(s). PARTIAL: Timed out after 30s: /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/nuclei -l /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/.nuclei-exposures-input.txt -jsonl -o /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/exposures-nuclei.raw.jsonl -nc -duc -ni -ud /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates -pt http -exclude-tags dos,fuzz,bruteforce -timeout 8 -retries 0 -mhe 30 -c 8 -bs 8 -rl 40 -stats-json -si 5 -elog /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/exposures-nuclei-errors.log -t /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates/http/exposures",
+      "error": null
     },
     {
       "key": "scanningCVEs",
@@ -72,23 +69,10 @@
       "findings": 10,
       "partial": true,
       "completed": false,
-      "templates": 4320,
-      "requests": 1791,
+      "templates": 4322,
+      "requests": 1792,
       "requestErrors": 11,
-      "message": "Known vulnerabilities / CVE scan: 10 scanner finding(s) from 1 selected target(s), 4320 template(s), 1791 request(s).",
-      "error": null,
-      "partialReason": "30-second smoke-test budget and/or failed requests; see state and counts. Not a clean result."
-    },
-    {
-      "key": "sqlInjection",
-      "success": true,
-      "findings": 1,
-      "partial": false,
-      "completed": true,
-      "templates": 1,
-      "requests": 25,
-      "requestErrors": 0,
-      "message": "SQL injection DAST scan: 1 scanner finding(s) from 3 selected target(s), 1 template(s), 25 request(s). Selected scan completed.",
+      "message": "Known vulnerabilities / CVE scan: 10 scanner finding(s) from 1 selected target(s), 4322 template(s), 1792 request(s). PARTIAL: Timed out after 30s: /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/nuclei -l /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/.nuclei-scanningCVEs-input.txt -jsonl -o /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/scanningCVEs-nuclei.raw.jsonl -nc -duc -ni -ud /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates -pt http -exclude-tags dos,fuzz,bruteforce -timeout 8 -retries 0 -mhe 30 -c 8 -bs 8 -rl 40 -stats-json -si 5 -elog /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects/HK-production-smoke-93540/logs/scanningCVEs-nuclei-errors.log -severity medium,high,critical -t /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates/http/cves",
       "error": null
     },
     {
@@ -101,6 +85,29 @@
       "requests": 47,
       "requestErrors": 0,
       "message": "LFI scan: 3 scanner finding(s) from 3 selected target(s), 3 template(s), 47 request(s). Selected scan completed.",
+      "error": null
+    },
+    {
+      "key": "sqlInjection",
+      "success": true,
+      "findings": 1,
+      "partial": false,
+      "completed": true,
+      "templates": 2,
+      "requests": 58,
+      "requestErrors": 0,
+      "message": "SQL injection DAST scan: 1 scanner finding(s) from 3 selected target(s), 2 template(s), 58 request(s). Selected scan completed.",
+      "error": null
+    },
+    {
+      "key": "XSS",
+      "success": true,
+      "findings": 1,
+      "partial": false,
+      "completed": true,
+      "requests": 72,
+      "requestErrors": 0,
+      "message": "XSS: 1 verified finding(s), 0 observation(s) from 3 URL(s).",
       "error": null
     }
   ]

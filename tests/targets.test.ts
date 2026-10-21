@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseTarget, targetSeeds, scopedUrls } from '../backend/src/targets.js';
-import { parseNucleiReport, parseDalfoxEnvelope, updateDetails, readJson } from '../backend/src/core.js';
+import { parseNucleiReport, parseDalfoxEnvelope, updateDetails, readJson, safeProjectName } from '../backend/src/core.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -28,6 +28,12 @@ test('hostname scope includes discovered subdomains but excludes lookalike domai
 test('IP and localhost targets do not allow arbitrary hostname suffixes', () => {
   assert.deepEqual(scopedUrls(['http://evil.127.0.0.1/', 'http://127.0.0.1/'], parseTarget('127.0.0.1')), ['http://127.0.0.1/']);
   assert.deepEqual(scopedUrls(['http://evil.localhost/', 'http://localhost/'], parseTarget('localhost')), ['http://localhost/']);
+});
+test('project names are portable and cannot alias the project root on Windows or POSIX', () => {
+  for (const name of ['alpha', 'Team 7', 'scan-01', 'scan_result', 'release.2']) assert.equal(safeProjectName(name), name);
+  for (const name of ['.', '..', '.hidden', 'trailing.', ' trailing', 'trailing ', 'a..b', 'CON', 'nul.txt', 'LPT1']) {
+    assert.throws(() => safeProjectName(name), /Invalid project name/);
+  }
 });
 test('Nuclei statistics cannot turn into phantom findings when stdout is used', () => {
   const finding = { 'template-id': 'contract', info: { name: 'contract', severity: 'info' }, 'matched-at': 'http://localhost/' };

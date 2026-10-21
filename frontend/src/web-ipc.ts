@@ -31,21 +31,17 @@ const invoke = async (channel: string, ...args: any[]) => {
     if (!response.ok) {
       const message = payload?.error || payload?.message || `Request failed (${response.status})`;
       if (ACTION_CHANNELS.has(channel)) {
-        window.alert(message);
         return { success: false, message: 'Tool execution failed', error: message };
       }
       throw new Error(message);
     }
 
-    if (payload && typeof payload === 'object' && payload.success === false) {
-      const detail = payload.error ? `\n\n${payload.error}` : '';
-      window.alert(`${payload.message || 'Tool execution failed'}${detail}`);
-    }
     return payload;
   } catch (error: any) {
     if (ACTION_CHANNELS.has(channel)) {
-      const message = error?.message || String(error);
-      window.alert(`Tool request failed\n\n${message}`);
+      const message = error?.name === 'AbortError'
+        ? `The request exceeded its ${Math.round(requestTimeout / 60_000)} minute safety limit. Check the saved scan status and logs.`
+        : error?.message || String(error);
       return { success: false, message: 'Tool request failed', error: message };
     }
     throw error;
