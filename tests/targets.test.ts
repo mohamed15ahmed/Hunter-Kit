@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseTarget, targetSeeds, scopedUrls } from '../backend/src/targets.js';
-import { parseNucleiReport, parseDalfoxEnvelope, updateDetails, readJson, safeProjectName } from '../backend/src/core.js';
+import { completedScannerStatus, parseNucleiReport, parseDalfoxEnvelope, updateDetails, readJson, safeProjectName } from '../backend/src/core.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,6 +41,15 @@ test('Nuclei statistics cannot turn into phantom findings when stdout is used', 
   assert.deepEqual(parseNucleiReport(JSON.stringify(stats)), []);
   assert.deepEqual(parseNucleiReport([JSON.stringify(finding), JSON.stringify(stats)].join('\n')), [finding]);
   assert.deepEqual(parseNucleiReport(JSON.stringify([finding, stats])), [finding]);
+});
+test('a normally completed scanner stays COMPLETED when a minority of requests fail', () => {
+  const completed = completedScannerStatus(false, 76, 'Nuclei');
+  assert.equal(completed.completed, true);
+  assert.equal(completed.partial, false);
+  assert.match(completed.warning || '', /76 request error/);
+  const interrupted = completedScannerStatus(true, 0, 'Nuclei');
+  assert.equal(interrupted.completed, false);
+  assert.equal(interrupted.partial, true);
 });
 test('Dalfox reflections and static observations are separate from verified V findings', () => {
   const report = parseDalfoxEnvelope(JSON.stringify({ findings: [{ type: 'V', param: 'q' }, { type: 'R', param: 'q' }, { type: 'A', param: 'q' }], meta: { incomplete: true } }));

@@ -1,31 +1,31 @@
 
-> hunterkit-web@1.10.1 check:tools
+> hunterkit-web@1.10.2 check:tools
 > npm run check:tools -w backend
 
 
-> @hunterkit/backend@1.10.1 check:tools
+> @hunterkit/backend@1.10.2 check:tools
 > tsx src/check-tools.ts
 
 
-HunterKit Web diagnostics — build 1.10.1 VERIFIED-BASELINE
-Project root : /workspace/hunterkit-review-1.10/HunterKit-Fixed
-Projects     : /workspace/hunterkit-review-1.10/HunterKit-Fixed/projects
-Bundled tools: /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin
-Nuclei templates: PRESENT  /workspace/hunterkit-review-1.10/HunterKit-Fixed/.tools/nuclei-templates
+HunterKit Web diagnostics — build 1.10.2 VERIFIED-BASELINE
+Project root : /workspace/Hunter-Kit
+Projects     : /workspace/Hunter-Kit/projects
+Bundled tools: /workspace/Hunter-Kit/bin
+Nuclei templates: PRESENT  /workspace/Hunter-Kit/.tools/nuclei-templates
 
 INSTALLED means the expected executable starts; it does not establish target coverage or findings.
 
-✓ subfinder    INSTALLED  /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/subfinder
+✓ subfinder    INSTALLED  /workspace/Hunter-Kit/bin/subfinder
   [INF] Current Version: v2.17.0
-✓ httpx        INSTALLED  /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/httpx
+✓ httpx        INSTALLED  /workspace/Hunter-Kit/bin/httpx
   [INF] Current Version: v1.12.0
-✓ waybackurls  INSTALLED  /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/waybackurls
-  Usage of /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/waybackurls:
-✓ nuclei       INSTALLED  /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/nuclei
+✓ waybackurls  INSTALLED  /workspace/Hunter-Kit/bin/waybackurls
+  Usage of /workspace/Hunter-Kit/bin/waybackurls:
+✓ nuclei       INSTALLED  /workspace/Hunter-Kit/bin/nuclei
   [INF] Nuclei Engine Version: v3.11.1
-✓ dalfox       INSTALLED  /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/dalfox
+✓ dalfox       INSTALLED  /workspace/Hunter-Kit/bin/dalfox
   dalfox 3.2.4
-✓ jsleak       INSTALLED  /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/jsleak
-  Usage of /workspace/hunterkit-review-1.10/HunterKit-Fixed/bin/jsleak:
+✓ jsleak       INSTALLED  /workspace/Hunter-Kit/bin/jsleak
+  Usage of /workspace/Hunter-Kit/bin/jsleak:
 
 Screenshot browser: /usr/bin/chromium

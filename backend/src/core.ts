@@ -836,6 +836,19 @@ export function parseNucleiReport(raw: string): any[] {
   return parseJsonLines(trimmed).filter(isNucleiFinding);
 }
 
+export function completedScannerStatus(incomplete: boolean, requestErrors?: number, engine = 'Scanner') {
+  const errors = Number.isFinite(requestErrors) ? Math.max(0, Number(requestErrors)) : 0;
+  return {
+    partial: incomplete,
+    completed: !incomplete,
+    warning: incomplete
+      ? `${engine} stopped before the selected scan finished; coverage is incomplete.`
+      : errors > 0
+        ? `${engine} completed the selected scan with ${errors} request error(s). Findings and request counts were saved; review the error log if needed.`
+        : undefined,
+  };
+}
+
 type NucleiAttackSpec = {
   key: string;
   file: string;
@@ -930,7 +943,7 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     const args = [
       '-l', prepared.file, '-jsonl', '-o', rawOutput, '-nc', '-duc', '-ni',
       '-ud', root, '-pt', 'http', '-exclude-tags', 'dos,fuzz,bruteforce',
-      '-timeout', '8', '-retries', '0', '-mhe', '30', '-c', '8', '-bs', '8', '-rl', '40',
+      '-timeout', '8', '-retries', '1', '-mhe', '30', '-c', '8', '-bs', '8', '-rl', '40',
       '-stats-json', '-si', '5', '-elog', path.join(logs, `${spec.key}-nuclei-errors.log`),
     ];
     if (spec.severity) args.push('-severity', spec.severity);
@@ -940,8 +953,8 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     if (spec.dast) args.push('-dast', '-fa', 'low');
 
     const configuredBudget = Number(process.env.HUNTERKIT_SCAN_TIMEOUT_MS || spec.budgetMs);
-    if (!Number.isFinite(configuredBudget) || configuredBudget < 1000 || configuredBudget > 600000) {
-      throw new Error('HUNTERKIT_SCAN_TIMEOUT_MS must be between 1000 and 600000 milliseconds.');
+    if (!Number.isFinite(configuredBudget) || configuredBudget < 1000 || configuredBudget > 900000) {
+      throw new Error('HUNTERKIT_SCAN_TIMEOUT_MS must be between 1000 and 900000 milliseconds.');
     }
     const budgetMs = configuredBudget;
     let proc: ProcessResult;
@@ -969,16 +982,19 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     if (!partial && !rows.length && requests && requestErrors! >= requests) {
       throw new Error(`All ${requests} Nuclei requests failed. Check the target URL, port, network and logs/${spec.key}-nuclei-errors.log.`);
     }
-    // Even a normally exited engine can have failed requests. Keep coverage loss visible.
-    if (requestErrors || requests === undefined) partial = true;
+    // A normal engine exit means the selected scan finished. Individual request errors stay
+    // visible as a warning, but do not mislabel thousands of completed requests as PARTIAL.
+    // PARTIAL is reserved for a deadline or another incomplete engine run.
+    const completion = completedScannerStatus(partial, requestErrors, 'Nuclei');
+    partial = completion.partial;
     await fsp.writeFile(json, rows.map(r => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : ''));
     await writeLines(txt, rows.map(nucleiSummaryLine));
     const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
     const selector = scanSpecLabel(spec, templatePaths);
     const meta = {
       ...resultObj(rows.length, txt), partial, running: false, targets: prepared.targets.length,
-      selector, elapsedSeconds, completed: !partial, templates: loaded, requests, requestErrors,
-      warning: partial ? timeoutMessage || 'Scanner request statistics show errors or are unavailable; coverage is incomplete.' : undefined,
+      selector, elapsedSeconds, completed: completion.completed, templates: loaded, requests, requestErrors,
+      warning: timeoutMessage || completion.warning,
     };
     await updateDetails(dir, { [spec.key]: meta });
     await fsp.writeFile(statusFile, JSON.stringify({
@@ -988,7 +1004,7 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     }, null, 2));
     return {
       success: true, error: null, partial, result: rows.length, outputFile: txt, stderr: proc.stderr, command: proc.command,
-      message: `${spec.label}: ${rows.length} scanner finding(s) from ${prepared.targets.length} selected target(s), ${loaded} template(s), ${requests ?? 'unknown'} request(s). ${partial ? 'PARTIAL: ' + (timeoutMessage || 'Some requests failed.') : 'Selected scan completed.'}`,
+      message: `${spec.label}: ${rows.length} scanner finding(s) from ${prepared.targets.length} selected target(s), ${loaded} template(s), ${requests ?? 'unknown'} request(s). ${partial ? 'PARTIAL: ' + (timeoutMessage || 'The scanner stopped early.') : `Selected scan completed${requestErrors ? ` with ${requestErrors} request error(s)` : ''}.`}`,
     };
   } catch (error: any) {
     const msg = errorText(error);
@@ -1003,11 +1019,11 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
 const ATTACK_SPECS: Record<string, NucleiAttackSpec> = {
   general: {
     key: 'generalScanning', file: 'general_scanning.txt', label: 'General security scan',
-    templateDirs: ['http/misconfiguration', 'http/exposures', 'http/exposed-panels'], budgetMs: 180000, maxTargets: 8, input: 'live',
+    templateDirs: ['http/misconfiguration', 'http/exposures', 'http/exposed-panels'], budgetMs: 300000, maxTargets: 8, input: 'live',
   },
   panels: {
     key: 'exposedPanels', file: 'exposed_panels.txt', label: 'Exposed panels scan',
-    templateDirs: ['http/exposed-panels'], fallbackTags: ['panel'], budgetMs: 180000, maxTargets: 10, input: 'live',
+    templateDirs: ['http/exposed-panels'], fallbackTags: ['panel'], budgetMs: 300000, maxTargets: 10, input: 'live',
   },
   defaults: {
     key: 'defaultCredentials', file: 'default_credentials.txt', label: 'Default-login scan',
@@ -1019,11 +1035,11 @@ const ATTACK_SPECS: Record<string, NucleiAttackSpec> = {
   },
   exposure: {
     key: 'exposures', file: 'exposures.txt', label: 'Exposure scan',
-    templateDirs: ['http/exposures'], fallbackTags: ['exposure'], budgetMs: 180000, maxTargets: 10, input: 'live',
+    templateDirs: ['http/exposures'], fallbackTags: ['exposure'], budgetMs: 300000, maxTargets: 10, input: 'live',
   },
   cves: {
     key: 'scanningCVEs', file: 'CVEs.txt', label: 'Known vulnerabilities / CVE scan',
-    templateDirs: ['http/cves'], fallbackTags: ['cve'], severity: 'medium,high,critical', budgetMs: 180000, maxTargets: 10, input: 'live',
+    templateDirs: ['http/cves'], fallbackTags: ['cve'], severity: 'medium,high,critical', budgetMs: 300000, maxTargets: 10, input: 'live',
   },
   lfi: {
     key: 'scanningForLFI', file: 'LFI.txt', label: 'LFI scan',
@@ -1083,31 +1099,35 @@ async function dalfoxScan(dir: string, key: string, file: string) {
     await writeLines(input, candidates);
     const args = [
       'scan', input, '--input-type', 'file', '-f', 'json', '-o', json,
-      '--no-color', '--dedup-urls', 'signature', '--scan-timeout', '60', '--timeout', '8',
-      '--rate-limit', '20', '--retries', '0', '--workers', '10', '--max-concurrent-targets', '3',
+      '--no-color', '--dedup-urls', 'signature', '--scan-timeout', '120', '--timeout', '8',
+      '--rate-limit', '20', '--retries', '1', '--workers', '10', '--max-concurrent-targets', '3',
       '--skip-mining',
     ];
     let proc: ProcessResult;
-    try { proc = await runProcess(toolPath('dalfox'), args, { timeout: 180000, acceptedCodes: [0, 1] }); }
+    try { proc = await runProcess(toolPath('dalfox'), args, { timeout: 300000, acceptedCodes: [0, 1] }); }
     catch (error: any) {
       await saveToolLog(dir, `${key}-dalfox`, [error?.stdout, error?.stderr, errorText(error)].filter(Boolean).join('\n'));
       throw error;
     }
     await saveToolLog(dir, `${key}-dalfox`, [proc.stdout, proc.stderr].filter(Boolean).join('\n'));
     const report = parseDalfoxEnvelope((await fsp.readFile(json, 'utf8')) || proc.stdout);
-    const partial = report.incomplete || Number(report.meta?.failed_requests || 0) > 0;
+    const failedRequests = Number(report.meta?.failed_requests || 0);
+    const totalRequests = Number(report.meta?.total_requests || 0);
+    const completion = completedScannerStatus(report.incomplete, failedRequests, 'Dalfox');
+    const partial = completion.partial;
     if (!partial && !report.findings.length && Number(report.meta?.total_requests) === 0) throw new Error('Dalfox sent no requests. Review the input URLs and scanner log.');
+    if (!partial && !report.findings.length && totalRequests > 0 && failedRequests >= totalRequests) throw new Error(`All ${totalRequests} Dalfox requests failed. Review the input URLs and scanner log.`);
     await writeLines(txt, report.findings.map(f => `[${f.severity || 'high'}] ${f.param || ''} ${f.evidence || f.message_str || ''}`.trim()));
     const meta = {
       ...resultObj(report.findings.length, txt), candidates: candidates.length, running: false,
-      partial, completed: !partial, observations: report.observations.length,
+      partial, completed: completion.completed, observations: report.observations.length,
       requests: report.meta?.total_requests, requestErrors: report.meta?.failed_requests,
       elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
-      warning: partial ? 'Dalfox reported incomplete coverage or failed requests. Review the raw report and log.' : undefined,
+      warning: completion.warning,
     };
     await updateDetails(dir, { [key]: meta });
     await fsp.writeFile(path.join(dir, `${key}-scan-status.json`), JSON.stringify({ ...meta, command: proc.command, inputFile: input }, null, 2));
-    return { message: `XSS: ${report.findings.length} verified finding(s), ${report.observations.length} observation(s) from ${candidates.length} URL(s).${partial ? ' PARTIAL: coverage is incomplete.' : ''}`, success: true, partial, error: null, result: report.findings.length, outputFile: txt, command: proc.command };
+    return { message: `XSS: ${report.findings.length} verified finding(s), ${report.observations.length} observation(s) from ${candidates.length} URL(s).${partial ? ' PARTIAL: the scanner stopped early.' : ` COMPLETED${failedRequests ? ` with ${failedRequests} request error(s)` : ''}.`}`, success: true, partial, error: null, result: report.findings.length, outputFile: txt, command: proc.command };
   } catch (error: any) {
     const msg = errorText(error);
     await saveToolLog(dir, `${key}-dalfox-error`, msg).catch(() => undefined);

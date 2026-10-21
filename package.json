@@ -1,6 +1,6 @@
 {
   "name": "hunterkit-web",
-  "version": "1.10.1",
+  "version": "1.10.2",
   "private": true,
   "workspaces": [
     "frontend",
@@ -14,6 +14,7 @@
     "download:tools": "node scripts/download-original-tools.mjs",
     "check:attacks": "node scripts/check-attack-profiles.mjs",
     "manifest:source": "node scripts/source-manifest.mjs",
+    "demo:lab": "tsx scripts/demo-lab.mts",
     "setup:templates": "node scripts/setup-templates.mjs",
     "setup": "npm ci && npm run download:tools && npm run setup:templates && npm run check:tools && npm run check:attacks",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",

@@ -6,7 +6,8 @@ import * as core from '../backend/src/core.js';
 const fixture = await fixtureServer();
 const name = `HK-production-smoke-${process.pid}`;
 const oldBudget = process.env.HUNTERKIT_SCAN_TIMEOUT_MS;
-process.env.HUNTERKIT_SCAN_TIMEOUT_MS = '30000';
+process.env.HUNTERKIT_SCAN_TIMEOUT_MS = process.env.HUNTERKIT_SCAN_TIMEOUT_MS || '30000';
+const budgetPerProcessMs = Number(process.env.HUNTERKIT_SCAN_TIMEOUT_MS);
 const summary: any[] = [];
 try {
   await core.createProject(name, fixture.base + '/lab/');
@@ -26,7 +27,7 @@ try {
     summary.push(row); console.log(JSON.stringify(row));
   }
   const output = path.join(core.ROOT, 'validation'); await fs.mkdir(output, { recursive: true });
-  await fs.writeFile(path.join(output, 'production-profiles.json'), JSON.stringify({ generatedAt: new Date().toISOString(), target: 'loopback HTTP signature fixture', budgetPerProcessMs: 30000, results: summary }, null, 2));
+  await fs.writeFile(path.join(output, 'production-profiles.json'), JSON.stringify({ generatedAt: new Date().toISOString(), target: 'loopback HTTP signature fixture', budgetPerProcessMs, results: summary }, null, 2));
   if (summary.some(row => !row.success)) process.exitCode = 1;
 } finally {
   await fixture.close(); await fs.rm(core.projectPath(name), { recursive: true, force: true });

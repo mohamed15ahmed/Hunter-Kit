@@ -1,3 +1,12 @@
+# 1.10.2 — reliable completion reporting
+
+- Reserve `PARTIAL` for an actual timeout or an engine run that stopped early.
+- Treat a normally exited Nuclei or Dalfox run as `COMPLETED` while retaining a visible warning and exact count for isolated failed requests.
+- Retry individual Nuclei and Dalfox requests once and increase large-profile/Dalfox process budgets to five minutes.
+- Keep all-request failures as `FAILED`; parameter-dependent scans remain `SKIPPED` until a real parameterized URL is available.
+- Add regression coverage so a minority of request errors cannot incorrectly relabel a completed engine run.
+- Add a loopback-only deterministic demo lab and Windows launcher for repeatable graduation-project demonstrations.
+
 # 1.10.1 — verified baseline hardening
 
 - Prevent concurrent Recon/Attack/JSLeak tools for the same project; competing API requests fail immediately with HTTP 409 instead of queueing or overloading the target.

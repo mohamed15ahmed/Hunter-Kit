@@ -1,9 +1,9 @@
 
-> hunterkit-web@1.10.1 build
+> hunterkit-web@1.10.2 build
 > npm run build -w frontend && npm run build -w backend
 
 
-> @hunterkit/frontend@1.10.1 build
+> @hunterkit/frontend@1.10.2 build
 > tsc -b && vite build
 
 vite v6.4.4 building for production...
@@ -21,8 +21,8 @@ dist/assets/index-DnszuIPp.js          815.68 kB │ gzip: 212.68 kB
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 2.88s
+✓ built in 3.41s
 
-> @hunterkit/backend@1.10.1 build
+> @hunterkit/backend@1.10.2 build
 > tsc -p tsconfig.json
 

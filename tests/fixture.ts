@@ -39,7 +39,7 @@ export async function fixtureServer() {
     const send = () => { res.writeHead(status, { 'Content-Type': type }); res.end(body); };
     if (state.slow) setTimeout(send, 2000); else send();
   });
-  await new Promise<void>(resolve => server.listen(0, '::', resolve));
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const port = (server.address() as any).port;
   return { state, base: `http://localhost:${port}`, close: () => new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }) };
 }
