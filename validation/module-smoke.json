@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-10-22T16:31:48.833Z",
+  "target": "loopback authorized signature lab",
+  "modules": {
+    "recon": {
+      "success": true,
+      "stages": [
+        {
+          "name": "Subfinder",
+          "success": true,
+          "result": 0
+        },
+        {
+          "name": "HTTPX",
+          "success": true,
+          "result": 1
+        },
+        {
+          "name": "WaybackURLs",
+          "success": true,
+          "result": 0
+        },
+        {
+          "name": "JS inventory",
+          "success": true,
+          "result": 1
+        },
+        {
+          "name": "Parameters",
+          "success": true,
+          "result": 3
+        }
+      ]
+    },
+    "securityTesting": {
+      "success": true,
+      "status": "COMPLETED_WITH_FINDINGS",
+      "result": 6
+    },
+    "penetrationTesting": {
+      "sqli": {
+        "success": true,
+        "status": "COMPLETED_WITH_FINDINGS",
+        "result": 1
+      },
+      "xss": {
+        "success": true,
+        "status": "COMPLETED_WITH_FINDINGS",
+        "result": 1
+      }
+    },
+    "intelligentAnalysis": {
+      "status": "COMPLETED_WITH_FINDINGS",
+      "findings": 8,
+      "aiProvider": "NOT_CONFIGURED"
+    }
+  }
+}

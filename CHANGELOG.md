@@ -1,3 +1,12 @@
+# 1.12.0 — three-module security refactor
+
+- Add an independent Security Testing workflow for security headers, TLS certificates/protocols, CORS, advertised HTTP methods and Nuclei known-vulnerability evidence.
+- Keep Penetration Testing as the active Nuclei/Dalfox DAST workflow and standardize every final state as `COMPLETED_WITH_FINDINGS`, `COMPLETED_NO_FINDINGS`, `SKIPPED_NO_INPUTS`, `FAILED_TOOL_ERROR` or `PARTIAL`.
+- Require explicit authorization and bind the confirmed scope to every new project before active testing can run.
+- Add a consolidated Intelligent Analysis report that normalizes and deduplicates real evidence, scores risk and separates optional AI interpretation from scanner evidence.
+- Add Windows executable-name and CLI compatibility regression checks so unrelated `httpx` programs and unsupported Dalfox versions cannot pass diagnostics.
+- Add API, browser and real-tool integration coverage for the new modules while preserving Recon and JavaScript Leaks.
+
 # 1.10.2 — reliable completion reporting
 
 - Reserve `PARTIAL` for an actual timeout or an engine run that stopped early.

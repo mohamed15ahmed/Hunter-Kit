@@ -57,6 +57,7 @@ const projectActionChannels = new Set([
     'find-secrets', 'extra-links', 'general-scan', 'exposed-panels',
     'default-credentials', 'exposures', 'lfi', 'potential-xss', 'multi-scans',
     'subdomain-takeovers', 'vulns-cves',
+    'security-assessment', 'generate-intelligent-report',
 ]);
 const activeProjectJobs = new Map();
 app.post('/api/ipc/:channel', async (req, res) => {
@@ -81,7 +82,7 @@ app.post('/api/ipc/:channel', async (req, res) => {
                 out = core.listProjects();
                 break;
             case 'create-project':
-                out = await core.createProject(a.projectName, a.domain);
+                out = await core.createProject(a.projectName, a.domain, a.authorized);
                 break;
             case 'get-project-details':
                 out = await core.getDetails(first(args));
@@ -148,6 +149,15 @@ app.post('/api/ipc/:channel', async (req, res) => {
                 break;
             case 'vulns-cves':
                 out = await core.scanningCVEs(core.projectPath(a.projectName));
+                break;
+            case 'security-assessment':
+                out = await core.runSecurityAssessment(core.projectPath(a.projectName));
+                break;
+            case 'generate-intelligent-report':
+                out = await core.generateIntelligentReport(a.projectName);
+                break;
+            case 'get-intelligent-report':
+                out = await core.getIntelligentReport(first(args));
                 break;
             case 'fetch-data':
                 out = await core.ai(a.userInput);

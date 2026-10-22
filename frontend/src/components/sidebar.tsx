@@ -3,6 +3,8 @@ import {
   ChevronLeftIcon,
   LayoutDashboardIcon,
   PocketKnife,
+  ShieldCheck,
+  BrainCircuit,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
@@ -30,9 +32,19 @@ const dashboardMenu: DashboardMenu[] = [
     icon: <PocketKnife className="mr-2 h-4 w-4" />,
   },
   {
+    href: 'security-testing',
+    title: 'Security Testing',
+    icon: <ShieldCheck className="mr-2 h-4 w-4" />,
+  },
+  {
     href: 'attacks',
-    title: 'Attacks',
+    title: 'Penetration Testing',
     icon: <PocketKnife className="mr-2 h-4 w-4" />,
+  },
+  {
+    href: 'intelligent-analysis',
+    title: 'AI Analysis',
+    icon: <BrainCircuit className="mr-2 h-4 w-4" />,
   },
 
   {

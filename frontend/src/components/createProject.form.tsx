@@ -39,6 +39,7 @@ const formSchema = z.object({
       return ['http:', 'https:'].includes(url.protocol) && Boolean(url.hostname) && !url.username && !url.password;
     } catch { return false; }
   }, { message: 'Enter a hostname or HTTP(S) URL, including the port/path when needed (example: http://127.0.0.1:8080/lab/).' }),
+  authorized: z.boolean().refine(value => value === true, { message: 'Confirm that you own the target or have explicit permission to test it.' }),
 });
 
 export function CreateProjectForm() {
@@ -49,6 +50,7 @@ export function CreateProjectForm() {
     defaultValues: {
       projectName: '',
       domain: '',
+      authorized: false,
     },
   });
 
@@ -91,6 +93,22 @@ export function CreateProjectForm() {
               <FormControl>
                 <Input placeholder="http://127.0.0.1:8080/lab/" {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="authorized"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-start gap-3 rounded-md border p-3">
+                <FormControl>
+                  <input type="checkbox" checked={field.value} onChange={event => field.onChange(event.target.checked)} className="mt-1 h-4 w-4" />
+                </FormControl>
+                <FormLabel className="font-normal leading-5">I own this target or have explicit authorization to perform active security testing within the supplied scope.</FormLabel>
+              </div>
               <FormMessage />
             </FormItem>
           )}

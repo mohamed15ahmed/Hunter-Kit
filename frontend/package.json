@@ -1,6 +1,6 @@
 {
   "name": "@hunterkit/frontend",
-  "version": "1.10.2",
+  "version": "1.12.0",
   "private": true,
   "type": "module",
   "scripts": {

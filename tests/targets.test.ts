@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseTarget, targetSeeds, scopedUrls } from '../backend/src/targets.js';
-import { completedScannerStatus, parseNucleiReport, parseDalfoxEnvelope, updateDetails, readJson, safeProjectName } from '../backend/src/core.js';
+import { completedScannerStatus, finalScanStatus, isCompatibleToolOutput, parseNucleiReport, parseDalfoxEnvelope, toolExecutableName, updateDetails, readJson, safeProjectName } from '../backend/src/core.js';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -50,6 +50,22 @@ test('a normally completed scanner stays COMPLETED when a minority of requests f
   const interrupted = completedScannerStatus(true, 0, 'Nuclei');
   assert.equal(interrupted.completed, false);
   assert.equal(interrupted.partial, true);
+});
+test('standard scan statuses distinguish findings, clean, skipped, tool error and partial runs', () => {
+  assert.equal(finalScanStatus({ findings: 2 }), 'COMPLETED_WITH_FINDINGS');
+  assert.equal(finalScanStatus({ findings: 0 }), 'COMPLETED_NO_FINDINGS');
+  assert.equal(finalScanStatus({ skipped: true }), 'SKIPPED_NO_INPUTS');
+  assert.equal(finalScanStatus({ failed: true }), 'FAILED_TOOL_ERROR');
+  assert.equal(finalScanStatus({ partial: true }), 'PARTIAL');
+});
+test('Windows tool resolution and CLI compatibility reject unrelated httpx programs', () => {
+  assert.equal(toolExecutableName('httpx', 'win32'), 'httpx.exe');
+  assert.equal(toolExecutableName('dalfox', 'win32'), 'dalfox.exe');
+  assert.equal(toolExecutableName('jsleak', 'win32'), 'jsleak.exe');
+  assert.equal(isCompatibleToolOutput('httpx', '[INF] Current Version: v1.12.0'), true);
+  assert.equal(isCompatibleToolOutput('httpx', 'usage: httpx [URL] HTTP client'), false);
+  assert.equal(isCompatibleToolOutput('dalfox', 'dalfox 3.2.4'), true);
+  assert.equal(isCompatibleToolOutput('dalfox', 'dalfox 2.9.0'), false);
 });
 test('Dalfox reflections and static observations are separate from verified V findings', () => {
   const report = parseDalfoxEnvelope(JSON.stringify({ findings: [{ type: 'V', param: 'q' }, { type: 'R', param: 'q' }, { type: 'A', param: 'q' }], meta: { incomplete: true } }));

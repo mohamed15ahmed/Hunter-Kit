@@ -1,13 +1,13 @@
 
-> hunterkit-web@1.10.2 check:tools
+> hunterkit-web@1.12.0 check:tools
 > npm run check:tools -w backend
 
 
-> @hunterkit/backend@1.10.2 check:tools
+> @hunterkit/backend@1.12.0 check:tools
 > tsx src/check-tools.ts
 
 
-HunterKit Web diagnostics — build 1.10.2 VERIFIED-BASELINE
+HunterKit Web diagnostics — build 1.12.0 VERIFIED-SECURITY-REFACTOR
 Project root : /workspace/Hunter-Kit
 Projects     : /workspace/Hunter-Kit/projects
 Bundled tools: /workspace/Hunter-Kit/bin

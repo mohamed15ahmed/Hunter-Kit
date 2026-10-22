@@ -12,9 +12,11 @@ import { ROOT, projectPath } from '../backend/src/core.js';
 test('HTTP API and production React interface use the real scan pipeline', { timeout: 120000 }, async t => {
   const fixture = await fixtureServer();
   const templates = await fs.mkdtemp(path.join(os.tmpdir(), 'hunterkit-api-templates-'));
-  const rel = 'http/exposed-panels/phpmyadmin-panel.yaml';
-  await fs.mkdir(path.dirname(path.join(templates, rel)), { recursive: true });
-  await fs.copyFile(path.join(ROOT, '.tools/nuclei-templates', rel), path.join(templates, rel));
+  const templateFiles = ['http/exposed-panels/phpmyadmin-panel.yaml', 'http/cves/2021/CVE-2021-41773.yaml'];
+  for (const rel of templateFiles) {
+    await fs.mkdir(path.dirname(path.join(templates, rel)), { recursive: true });
+    await fs.copyFile(path.join(ROOT, '.tools/nuclei-templates', rel), path.join(templates, rel));
+  }
   const portServer = net.createServer();
   await new Promise<void>(resolve => portServer.listen(0, '127.0.0.1', resolve));
   const port = (portServer.address() as any).port;
@@ -46,7 +48,7 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
       assert.equal(local.headers.get('access-control-allow-origin'), 'http://127.0.0.1:5173');
     });
     await t.test('create-project and exposed-panels return actual JSONL findings through IPC', async () => {
-      const created = await ipc('create-project', { projectName: name, domain: fixture.base + '/lab/' });
+      const created = await ipc('create-project', { projectName: name, domain: fixture.base + '/lab/', authorized: true });
       assert.equal(created.data.error, false, JSON.stringify(created.data));
       const scanned = await ipc('exposed-panels', { projectName: name });
       assert.equal(scanned.data.success, true, JSON.stringify(scanned.data)); assert.ok(scanned.data.result > 0);
@@ -54,6 +56,18 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
       assert.ok(results.data.results.some((row: any) => row['template-id'] === 'phpmyadmin-panel'));
       assert.equal(results.data.results[0].sources[0].module, 'exposedPanels');
       const details = await ipc('get-project-details', name); assert.equal(details.data.exposedPanels.completed, true);
+    });
+    await t.test('project creation rejects missing authorization confirmation', async () => {
+      const denied = await ipc('create-project', { projectName: `${name}-unauthorized`, domain: fixture.base + '/lab/' });
+      assert.equal(denied.response.status, 500); assert.match(denied.data.error, /authorization confirmation/i);
+    });
+    await t.test('Security Testing and Intelligent Analysis persist evidence-backed API reports', async () => {
+      const security = await ipc('security-assessment', { projectName: name });
+      assert.equal(security.data.success, true, JSON.stringify(security.data)); assert.equal(security.data.status, 'COMPLETED_WITH_FINDINGS');
+      const securityReport = await ipc('api-call', { projectName: name, location: 'security-assessment.json', type: 'application/json' });
+      const parsed = JSON.parse(securityReport.data.body); assert.ok(parsed.findings.some((finding: any) => finding.category === 'known-vulnerability'));
+      const intelligent = await ipc('generate-intelligent-report', { projectName: name });
+      assert.equal(intelligent.data.status, 'COMPLETED_WITH_FINDINGS'); assert.ok(intelligent.data.findings.length > 0);
     });
     await t.test('failed input returns an explicit API error', async () => {
       const bad = await ipc('create-project', { projectName: '../escape', domain: fixture.base });
@@ -86,6 +100,7 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
         await page.getByRole('button', { name: 'Create', exact: true }).click();
         await page.getByLabel('Project Name', { exact: true }).fill(uiName);
         await page.getByLabel('Target hostname or URL', { exact: true }).fill(fixture.base + '/lab/');
+        await page.getByLabel(/I own this target/).check();
         await page.getByRole('dialog').getByRole('button', { name: 'Create', exact: true }).click();
         await page.waitForURL(`**/${uiName}/dashboard`);
         await page.goto(`${base}/${uiName}/attacks`);
@@ -100,6 +115,12 @@ test('HTTP API and production React interface use the real scan pipeline', { tim
         await page.getByRole('cell', { name: 'phpmyadmin-panel', exact: true }).waitFor();
         assert.match(await page.locator('body').innerText(), /COMPLETED/);
         assert.match(await page.locator('body').innerText(), /exposedPanels/);
+        await page.goto(`${base}/${name}/security-testing`);
+        await page.getByRole('heading', { name: 'Security Testing', exact: true }).waitFor();
+        assert.match(await page.locator('body').innerText(), /COMPLETED_WITH_FINDINGS/);
+        await page.goto(`${base}/${name}/intelligent-analysis`);
+        await page.getByRole('heading', { name: 'AI & Intelligent Analysis', exact: true }).waitFor();
+        assert.match(await page.locator('body').innerText(), /evidence-backed finding/);
         await page.goto(`${base}/${uiName}/jsleaks`);
         const linksResponse = page.waitForResponse(response => response.url().endsWith('/api/ipc/extra-links'));
         await page.getByRole('heading', { name: 'Find EndPoints', exact: true }).locator('../..').getByRole('button', { name: 'Process', exact: true }).click();

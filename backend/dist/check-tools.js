@@ -1,6 +1,6 @@
 import { toolDiagnostics } from './core.js';
 const info = await toolDiagnostics();
-console.log('\nHunterKit Web diagnostics — build 1.10.2 VERIFIED-BASELINE');
+console.log('\nHunterKit Web diagnostics — build 1.12.0 VERIFIED-SECURITY-REFACTOR');
 console.log(`Project root : ${info.root}`);
 console.log(`Projects     : ${info.projectDir}`);
 console.log(`Bundled tools: ${info.binDir}`);

@@ -4,6 +4,7 @@ const ACTION_CHANNELS = new Set([
   'find-secrets', 'extra-links', 'general-scan', 'exposed-panels',
   'default-credentials', 'exposures', 'lfi', 'potential-xss', 'multi-scans',
   'subdomain-takeovers', 'vulns-cves',
+  'security-assessment', 'generate-intelligent-report',
 ]);
 
 const invoke = async (channel: string, ...args: any[]) => {

@@ -12,6 +12,8 @@ import { ReconResults } from './views/project/results/recon-results';
 import JsLeaks from './views/project/JsLeaks';
 import Attacks from './views/project/attacks';
 import AttacksResults from './views/project/attackResults';
+import SecurityTesting from './views/project/SecurityTesting';
+import IntelligentAnalysis from './views/project/IntelligentAnalysis';
 
 function Home() {
   return (
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="result" element={<Results />} />
             <Route path="result-recon" element={<ReconResults />} />
             <Route path="attacks" element={<Attacks />} />
+            <Route path="security-testing" element={<SecurityTesting />} />
+            <Route path="intelligent-analysis" element={<IntelligentAnalysis />} />
             <Route path="attack-result" element={<AttacksResults />} />
             <Route path="jsleaks" element={<JsLeaks />} />
           </Route>

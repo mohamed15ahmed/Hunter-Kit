@@ -10,7 +10,7 @@ process.env.HUNTERKIT_SCAN_TIMEOUT_MS = process.env.HUNTERKIT_SCAN_TIMEOUT_MS ||
 const budgetPerProcessMs = Number(process.env.HUNTERKIT_SCAN_TIMEOUT_MS);
 const summary: any[] = [];
 try {
-  await core.createProject(name, fixture.base + '/lab/');
+  await core.createProject(name, fixture.base + '/lab/', true);
   const dir = core.projectPath(name);
   await core.parameter(dir);
   const jobs = [

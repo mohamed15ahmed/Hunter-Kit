@@ -1,11 +1,11 @@
-# HunterKit fixed project — 1.10.2 (active baseline)
+# HunterKit Security Refactor — 1.12.0
 
-[Download the fixed project ZIP](https://github.com/mohamed15ahmed/Hunter-Kit/raw/refs/heads/hunterkit-fixed-1.10.2/downloads/HunterKit-Fixed-1.10.2.zip)
+[Download the complete project ZIP](https://github.com/mohamed15ahmed/Hunter-Kit/raw/refs/heads/hunterkit-security-refactor-1.12.0/downloads/HunterKit-Security-Refactor-1.12.0.zip)
 
 Extract the ZIP, run `INSTALL-TOOLS.cmd`, then `START-HUNTERKIT.cmd` on Windows x64. The installer downloads the pinned tool binaries and templates. Linux x64 instructions are in README.md.
 
-The full source is also available on this branch. See `FIX-REPORT.ar.md` and `validation/` for the fixes, 37 passing tests, clean-install checks, and all nine completed full-profile results. Runtime execution was tested on Linux; Windows executable archive and binary hashes were verified, but Windows execution was not tested.
+The full source is also available on this branch. See `FIX-REPORT.ar.md`, `TEST-REPORT.md`, `TOOL-COMPATIBILITY.md` and `validation/` for 43 passing full tests, 29 passing integration tests, the three-module smoke test and tool evidence. Runtime execution was tested on Linux; Windows executable archives and binary hashes were verified, but Windows execution was not tested.
 
-The ZIP SHA-256 is in `downloads/HunterKit-Fixed-1.10.2.zip.sha256`.
+The ZIP SHA-256 is in `downloads/HunterKit-Security-Refactor-1.12.0.zip.sha256`.
 
-Version 1.11.0 has been withdrawn at the user's request. Version 1.10.2 continues directly from the repaired 1.10 baseline. The withdrawn update is retained on `archive/hunterkit-1.11.0-c24fc39` for reference only.
+This branch continues from the repaired 1.10.2 baseline. The previously withdrawn queued-scanner 1.11.0 branch was not reused.

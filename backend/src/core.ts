@@ -6,6 +6,9 @@ import { spawn } from 'node:child_process';
 import dns from 'node:dns/promises';
 import axios from 'axios';
 import https from 'node:https';
+import tls from 'node:tls';
+import net from 'node:net';
+import { createHash } from 'node:crypto';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { load } from 'cheerio';
@@ -36,10 +39,22 @@ export type RunResult = {
   success: boolean;
   error: string | null;
   result?: number;
+  partial?: boolean;
+  skipped?: boolean;
+  busy?: boolean;
   outputFile?: string;
   stderr?: string;
   command?: string;
+  status?: ScanStatus;
   stages?: Array<{ name: string; success: boolean; result?: number; message: string }>;
+};
+
+export type ScanStatus = 'COMPLETED_WITH_FINDINGS' | 'COMPLETED_NO_FINDINGS' | 'SKIPPED_NO_INPUTS' | 'FAILED_TOOL_ERROR' | 'PARTIAL';
+export const finalScanStatus = (options: { findings?: number; skipped?: boolean; failed?: boolean; partial?: boolean }): ScanStatus => {
+  if (options.failed) return 'FAILED_TOOL_ERROR';
+  if (options.skipped) return 'SKIPPED_NO_INPUTS';
+  if (options.partial) return 'PARTIAL';
+  return (options.findings || 0) > 0 ? 'COMPLETED_WITH_FINDINGS' : 'COMPLETED_NO_FINDINGS';
 };
 
 type ProcessResult = { code: number; stdout: string; stderr: string; command: string };
@@ -59,11 +74,23 @@ export function projectPath(name: string) {
   if (path.dirname(result) !== path.resolve(PROJECT_DIR)) throw new Error('Invalid project path');
   return result;
 }
+export function toolExecutableName(tool: string, platform: NodeJS.Platform = process.platform) {
+  return platform === 'win32' ? `${tool}.exe` : tool;
+}
 export function toolPath(tool: string) {
-  const exe = os.platform() === 'win32' ? `${tool}.exe` : tool;
+  const exe = toolExecutableName(tool, os.platform());
   const bundled = path.join(BIN_DIR, exe);
   return fs.existsSync(bundled) ? bundled : exe;
 }
+const TOOL_OUTPUT_PATTERNS: Record<string, RegExp> = {
+  subfinder: /Current Version:.*\d+\.\d+/i,
+  httpx: /Current Version:.*\d+\.\d+/i,
+  nuclei: /Nuclei Engine Version:.*3\./i,
+  dalfox: /dalfox\s+v?3\./i,
+  waybackurls: /Usage of .*waybackurls/i,
+  jsleak: /Enable secretFinder/i,
+};
+export function isCompatibleToolOutput(name: string, output: string) { return Boolean(TOOL_OUTPUT_PATTERNS[name]?.test(output.replace(/\x1b\[[0-9;]*m/g, ''))); }
 export async function readJson(file: string) { try { return JSON.parse(await fsp.readFile(file, 'utf8')); } catch { return null; } }
 const detailWrites = new Map<string, Promise<void>>();
 export async function updateDetails(dir: string, updates: Record<string, any>) {
@@ -80,6 +107,7 @@ export async function updateDetails(dir: string, updates: Record<string, any>) {
 }
 const attackJobs = new Map<string, string>();
 async function exclusiveAttack(dir: string, key: string, run: () => Promise<any>) {
+  await assertAuthorizedProject(dir);
   const id = path.resolve(dir);
   const active = attackJobs.get(id);
   if (active) {
@@ -177,18 +205,24 @@ export function listProjects() {
     .sort((a, b) => a.localeCompare(b));
 }
 
-export async function createProject(projectName: string, domain: string) {
+export async function createProject(projectName: string, domain: string, authorized = false) {
   safeProjectName(projectName);
+  if (authorized !== true) throw new Error('Explicit authorization confirmation is required before creating an active testing project.');
   const target = parseTarget(domain);
   const host = target.domain;
   const dir = projectPath(projectName);
   if (fs.existsSync(dir)) throw new Error('Project already exists');
   await fsp.mkdir(path.join(dir, 'logs'), { recursive: true });
   const now = new Date().toISOString();
-  await fsp.writeFile(path.join(dir, 'details.json'), JSON.stringify({ name: projectName, domain: host, targetUrl: target.targetUrl, explicitScheme: target.explicitScheme, createdAt: now, updatedAt: now }, null, 2));
+  await fsp.writeFile(path.join(dir, 'details.json'), JSON.stringify({ name: projectName, domain: host, targetUrl: target.targetUrl, explicitScheme: target.explicitScheme, authorization: { confirmed: true, confirmedAt: now, scope: target.targetUrl || host }, createdAt: now, updatedAt: now }, null, 2));
   await fsp.access(path.join(dir, 'details.json'));
   // Project creation must be immediate; target metadata is loaded by the Dashboard on demand.
   return { error: false, projectDir: dir };
+}
+export async function assertAuthorizedProject(dir: string) {
+  const details = await readJson(path.join(dir, 'details.json'));
+  if (details?.authorization?.confirmed !== true) throw new Error('Active testing is blocked until explicit authorization and scope are confirmed for this project.');
+  return details;
 }
 export async function getDetails(name: string) {
   const d = await readJson(path.join(projectPath(name), 'details.json'));
@@ -976,6 +1010,7 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     const requests = stats ? Number(stats.requests) : undefined;
     const requestErrors = stats ? Number(stats.errors) : undefined;
     const loaded = stats ? Number(stats.templates) : Number(combinedLog.match(/Templates loaded for current scan: (\d+)/i)?.[1] || 0);
+    const toolVersion = combinedLog.match(/(?:Nuclei Engine Version|Current nuclei version):\s*v?([^\s(]+)/i)?.[1] || 'unknown';
     if (!partial && !rows.length && (!loaded || requests === 0)) {
       throw new Error(`Nuclei executed no applicable requests (${loaded} template(s), ${requests ?? 'unknown'} requests). Check template selection, parameter inputs, and the scanner log.`);
     }
@@ -994,6 +1029,7 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
     const meta = {
       ...resultObj(rows.length, txt), partial, running: false, targets: prepared.targets.length,
       selector, elapsedSeconds, completed: completion.completed, templates: loaded, requests, requestErrors,
+      status: finalScanStatus({ findings: rows.length, partial }), tool: 'nuclei', toolVersion,
       warning: timeoutMessage || completion.warning,
     };
     await updateDetails(dir, { [spec.key]: meta });
@@ -1003,16 +1039,16 @@ async function nucleiAttack(dir: string, spec: NucleiAttackSpec) {
       findings: rows.length, command: proc.command, inputFile: prepared.file, outputFile: json,
     }, null, 2));
     return {
-      success: true, error: null, partial, result: rows.length, outputFile: txt, stderr: proc.stderr, command: proc.command,
+      success: true, error: null, partial, result: rows.length, outputFile: txt, stderr: proc.stderr, command: proc.command, status: meta.status,
       message: `${spec.label}: ${rows.length} scanner finding(s) from ${prepared.targets.length} selected target(s), ${loaded} template(s), ${requests ?? 'unknown'} request(s). ${partial ? 'PARTIAL: ' + (timeoutMessage || 'The scanner stopped early.') : `Selected scan completed${requestErrors ? ` with ${requestErrors} request error(s)` : ''}.`}`,
     };
   } catch (error: any) {
     const msg = errorText(error);
     await saveToolLog(dir, `${spec.key}-nuclei-error`, [msg, error?.stdout, error?.stderr].filter(Boolean).join('\n')).catch(() => undefined);
-    const meta = { ...resultObj(0, txt), running: false, completed: false, failed: !error?.skipped, skipped: Boolean(error?.skipped), error: msg, elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) };
+    const meta = { ...resultObj(0, txt), running: false, completed: false, failed: !error?.skipped, skipped: Boolean(error?.skipped), status: finalScanStatus({ failed: !error?.skipped, skipped: Boolean(error?.skipped) }), error: msg, elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) };
     await updateDetails(dir, { [spec.key]: meta }).catch(() => undefined);
     await fsp.writeFile(statusFile, JSON.stringify(meta, null, 2)).catch(() => undefined);
-    return { message: error?.skipped ? `${spec.label} SKIPPED` : `${spec.label} could not complete`, success: Boolean(error?.skipped), skipped: Boolean(error?.skipped), error: msg, outputFile: txt };
+    return { message: error?.skipped ? `${spec.label} SKIPPED` : `${spec.label} could not complete`, success: Boolean(error?.skipped), skipped: Boolean(error?.skipped), status: meta.status, error: msg, outputFile: txt };
   }
 }
 
@@ -1090,11 +1126,12 @@ async function dalfoxScan(dir: string, key: string, file: string) {
     if (!candidates.length) {
       const reason = 'No parameterized URLs were discovered. Supply a target URL with a query string or a page containing GET forms, then refresh Parameters.';
       await fsp.writeFile(json, JSON.stringify({ meta: { candidates: 0, skipped: true, reason }, findings: [] }, null, 2));
-      await updateDetails(dir, { [key]: { ...resultObj(0, txt), running: false, skipped: true, candidates: 0, completed: false, warning: reason } });
-      return { message: `XSS scan SKIPPED: ${reason}`, success: true, skipped: true, error: null, result: 0, outputFile: txt };
+      await updateDetails(dir, { [key]: { ...resultObj(0, txt), running: false, skipped: true, candidates: 0, completed: false, status: 'SKIPPED_NO_INPUTS', warning: reason } });
+      return { message: `XSS scan SKIPPED: ${reason}`, success: true, skipped: true, status: 'SKIPPED_NO_INPUTS', error: null, result: 0, outputFile: txt };
     }
     const version = await runProcess(toolPath('dalfox'), ['--version'], { timeout: 7000 });
     if (!/dalfox\s+(?:v)?3\./i.test(version.stdout + version.stderr)) throw new Error('HunterKit requires Dalfox v3. Run npm run download:tools to install the tested version.');
+    const toolVersion = (version.stdout + version.stderr).match(/dalfox\s+v?([^\s]+)/i)?.[1] || 'unknown';
     const input = path.join(dir, '.dalfox-xss-input.txt');
     await writeLines(input, candidates);
     const args = [
@@ -1120,21 +1157,21 @@ async function dalfoxScan(dir: string, key: string, file: string) {
     await writeLines(txt, report.findings.map(f => `[${f.severity || 'high'}] ${f.param || ''} ${f.evidence || f.message_str || ''}`.trim()));
     const meta = {
       ...resultObj(report.findings.length, txt), candidates: candidates.length, running: false,
-      partial, completed: completion.completed, observations: report.observations.length,
+      partial, completed: completion.completed, status: finalScanStatus({ findings: report.findings.length, partial }), tool: 'dalfox', toolVersion, observations: report.observations.length,
       requests: report.meta?.total_requests, requestErrors: report.meta?.failed_requests,
       elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
       warning: completion.warning,
     };
     await updateDetails(dir, { [key]: meta });
     await fsp.writeFile(path.join(dir, `${key}-scan-status.json`), JSON.stringify({ ...meta, command: proc.command, inputFile: input }, null, 2));
-    return { message: `XSS: ${report.findings.length} verified finding(s), ${report.observations.length} observation(s) from ${candidates.length} URL(s).${partial ? ' PARTIAL: the scanner stopped early.' : ` COMPLETED${failedRequests ? ` with ${failedRequests} request error(s)` : ''}.`}`, success: true, partial, error: null, result: report.findings.length, outputFile: txt, command: proc.command };
+    return { message: `XSS: ${report.findings.length} verified finding(s), ${report.observations.length} observation(s) from ${candidates.length} URL(s).${partial ? ' PARTIAL: the scanner stopped early.' : ` COMPLETED${failedRequests ? ` with ${failedRequests} request error(s)` : ''}.`}`, success: true, partial, status: meta.status, error: null, result: report.findings.length, outputFile: txt, command: proc.command };
   } catch (error: any) {
     const msg = errorText(error);
     await saveToolLog(dir, `${key}-dalfox-error`, msg).catch(() => undefined);
-    const meta = { ...resultObj(0, txt), running: false, completed: false, failed: true, partial: Boolean(error?.timedOut), error: msg };
+    const meta = { ...resultObj(0, txt), running: false, completed: false, failed: true, partial: Boolean(error?.timedOut), status: finalScanStatus({ failed: !error?.timedOut, partial: Boolean(error?.timedOut) }), error: msg };
     await updateDetails(dir, { [key]: meta }).catch(() => undefined);
     await fsp.writeFile(path.join(dir, `${key}-scan-status.json`), JSON.stringify(meta, null, 2)).catch(() => undefined);
-    return { message: 'Dalfox scan failed', success: false, error: msg, outputFile: txt };
+    return { message: 'Dalfox scan failed', success: false, status: meta.status, error: msg, outputFile: txt };
   }
 }
 export async function scanningForXSS(dir: string) { return exclusiveAttack(dir, 'XSS', () => dalfoxScan(dir, 'XSS', 'XSS.txt')); }
@@ -1267,6 +1304,166 @@ export async function attackResults(name: string) {
   return rows;
 }
 
+type SecurityFinding = {
+  id: string;
+  module: 'security-testing';
+  category: string;
+  title: string;
+  kind: 'observation' | 'vulnerability';
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  confidence: 'low' | 'medium' | 'high';
+  affectedUrl: string;
+  evidence: string;
+  remediation: string;
+  observedAt: string;
+  scanner?: string;
+};
+
+const securityFinding = (value: Omit<SecurityFinding, 'id' | 'module' | 'observedAt'>): SecurityFinding => ({
+  ...value,
+  id: createHash('sha256').update(`${value.category}|${value.title}|${value.affectedUrl}|${value.evidence}`).digest('hex').slice(0, 16),
+  module: 'security-testing',
+  observedAt: new Date().toISOString(),
+});
+
+async function inspectTls(target: string) {
+  const url = new URL(target);
+  if (url.protocol !== 'https:') return { applicable: false, evidence: 'Target URL uses HTTP; no TLS connection was attempted.' };
+  return new Promise<any>(resolve => {
+    let done = false;
+    const finish = (value: any) => { if (done) return; done = true; resolve(value); };
+    const socket = tls.connect({
+      host: url.hostname,
+      port: Number(url.port || 443),
+      servername: net.isIP(url.hostname) ? undefined : url.hostname,
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2',
+      timeout: 8000,
+    }, () => {
+      const cert: any = socket.getPeerCertificate();
+      finish({ applicable: true, authorized: socket.authorized, authorizationError: socket.authorizationError || null, protocol: socket.getProtocol(), cipher: socket.getCipher()?.name, validFrom: cert?.valid_from, validTo: cert?.valid_to, subject: cert?.subject?.CN || null, issuer: cert?.issuer?.CN || null });
+      socket.end();
+    });
+    socket.once('timeout', () => { socket.destroy(); finish({ applicable: true, error: 'TLS connection timed out after 8 seconds.' }); });
+    socket.once('error', error => finish({ applicable: true, error: error.message }));
+  });
+}
+
+export async function runSecurityAssessment(dir: string): Promise<RunResult> {
+  return exclusiveAttack(dir, 'securityTesting', async () => {
+    const startedAt = new Date();
+    const findings: SecurityFinding[] = [];
+    const errors: string[] = [];
+    const testedUrls: string[] = [];
+    const outputFile = path.join(dir, 'security-findings.json');
+    const reportFile = path.join(dir, 'security-assessment.json');
+    try {
+      const details = await assertAuthorizedProject(dir);
+      const prepared = await scannerHttpCandidates(dir, 5);
+      if (!prepared.targets.length) {
+        const status: ScanStatus = 'SKIPPED_NO_INPUTS';
+        const report = { status, startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(), testedUrls: [], findings: [], errors: ['No in-scope HTTP/S targets are available. Run Recon first.'] };
+        await fsp.writeFile(outputFile, '[]\n'); await fsp.writeFile(reportFile, JSON.stringify(report, null, 2));
+        await updateDetails(dir, { securityTesting: { ...resultObj(0, outputFile), status, skipped: true, completed: false, testedUrls: 0, error: report.errors[0] } });
+        return { success: true, status, result: 0, outputFile, error: null, message: 'Security Testing skipped: no in-scope HTTP/S inputs.' };
+      }
+
+      for (const target of prepared.targets) {
+        testedUrls.push(target);
+        try {
+          const response = await axios.get(target, { timeout: 10000, maxRedirects: 0, validateStatus: () => true, headers: browserHeaders });
+          const headers: Record<string, string> = Object.fromEntries(Object.entries(response.headers || {}).map(([key, value]) => [key.toLowerCase(), String(value)]));
+          const headerChecks: Array<[string, string, string]> = [
+            ['content-security-policy', 'Content-Security-Policy is absent', 'Define a restrictive Content-Security-Policy appropriate for the application.'],
+            ['x-content-type-options', 'X-Content-Type-Options is absent', 'Return X-Content-Type-Options: nosniff.'],
+            ['referrer-policy', 'Referrer-Policy is absent', 'Set a Referrer-Policy such as strict-origin-when-cross-origin.'],
+            ['permissions-policy', 'Permissions-Policy is absent', 'Restrict unused browser capabilities with Permissions-Policy.'],
+          ];
+          if (new URL(target).protocol === 'https:') headerChecks.push(['strict-transport-security', 'Strict-Transport-Security is absent', 'Enable HSTS after confirming all application traffic works over HTTPS.']);
+          for (const [header, title, remediation] of headerChecks) if (!headers[header]) findings.push(securityFinding({ category: 'security-headers', title, kind: 'observation', severity: 'info', confidence: 'high', affectedUrl: target, evidence: `HTTP ${response.status}; response header ${header} was not present.`, remediation, scanner: 'HunterKit HTTP assessment' }));
+
+          try {
+            const origin = 'https://hunterkit-invalid-origin.example';
+            const cors = await axios.get(target, { timeout: 10000, maxRedirects: 0, validateStatus: () => true, headers: { ...browserHeaders, Origin: origin } });
+            const allowOrigin = String(cors.headers?.['access-control-allow-origin'] || '');
+            const credentials = String(cors.headers?.['access-control-allow-credentials'] || '').toLowerCase() === 'true';
+            if (allowOrigin === origin) findings.push(securityFinding({ category: 'cors', title: credentials ? 'Arbitrary Origin reflected with credentials' : 'Arbitrary Origin reflected', kind: credentials ? 'vulnerability' : 'observation', severity: credentials ? 'high' : 'medium', confidence: 'high', affectedUrl: target, evidence: `Sent Origin: ${origin}; received Access-Control-Allow-Origin: ${allowOrigin}${credentials ? ' and Access-Control-Allow-Credentials: true' : ''}.`, remediation: 'Use an explicit allowlist of trusted origins and enable credentials only when required.', scanner: 'HunterKit CORS assessment' }));
+            else if (allowOrigin === '*') findings.push(securityFinding({ category: 'cors', title: 'Wildcard CORS policy observed', kind: 'observation', severity: 'low', confidence: 'high', affectedUrl: target, evidence: 'Response returned Access-Control-Allow-Origin: *.', remediation: 'Confirm that all exposed responses are intentionally public; otherwise use a trusted-origin allowlist.', scanner: 'HunterKit CORS assessment' }));
+          } catch (error) { errors.push(`${target} CORS check: ${errorText(error)}`); }
+
+          try {
+            const options = await axios.request({ url: target, method: 'OPTIONS', timeout: 10000, maxRedirects: 0, validateStatus: () => true, headers: browserHeaders });
+            const allow = String(options.headers?.allow || options.headers?.['access-control-allow-methods'] || '');
+            const risky = allow.split(',').map(x => x.trim().toUpperCase()).filter(x => ['TRACE', 'PUT', 'DELETE', 'CONNECT'].includes(x));
+            if (risky.length) findings.push(securityFinding({ category: 'http-methods', title: 'Potentially sensitive HTTP methods advertised', kind: 'observation', severity: risky.includes('TRACE') ? 'low' : 'info', confidence: 'medium', affectedUrl: target, evidence: `OPTIONS returned advertised methods: ${allow}. No state-changing request was sent.`, remediation: 'Disable methods that the application does not need and enforce authorization for every state-changing method.', scanner: 'HunterKit HTTP method assessment' }));
+          } catch (error) { errors.push(`${target} method check: ${errorText(error)}`); }
+
+          const tlsResult = await inspectTls(target);
+          if (!tlsResult.applicable) findings.push(securityFinding({ category: 'tls', title: 'TLS not used on selected target', kind: 'observation', severity: 'info', confidence: 'high', affectedUrl: target, evidence: tlsResult.evidence, remediation: 'Serve sensitive application traffic over HTTPS and redirect HTTP to HTTPS.', scanner: 'Node TLS' }));
+          else if (tlsResult.error || !tlsResult.authorized) findings.push(securityFinding({ category: 'tls', title: 'TLS certificate validation problem', kind: 'vulnerability', severity: 'medium', confidence: 'high', affectedUrl: target, evidence: JSON.stringify(tlsResult), remediation: 'Install a valid, trusted certificate with the correct hostname and complete certificate chain.', scanner: 'Node TLS' }));
+        } catch (error) { errors.push(`${target} HTTP assessment: ${errorText(error)}`); }
+      }
+
+      const nuclei = await nucleiAttack(dir, { key: 'securityKnownVulnerabilities', file: 'security_known_vulnerabilities.txt', label: 'Security Testing known vulnerability scan', templateDirs: ['http/cves'], fallbackTags: ['cve'], severity: 'medium,high,critical', budgetMs: 300000, maxTargets: 5, input: 'live' });
+      const rawNuclei = await fsp.readFile(path.join(dir, 'security_known_vulnerabilities.json'), 'utf8').catch(() => '');
+      for (const row of parseNucleiReport(rawNuclei)) findings.push(securityFinding({ category: 'known-vulnerability', title: row?.info?.name || row['template-id'] || 'Nuclei finding', kind: 'vulnerability', severity: String(row?.info?.severity || 'medium').toLowerCase() as SecurityFinding['severity'], confidence: 'high', affectedUrl: row['matched-at'] || row.url || row.host || row.input || details.targetUrl, evidence: JSON.stringify({ templateId: row['template-id'], matcher: row['matcher-name'], extractedResults: row['extracted-results'], matchedAt: row['matched-at'] }), remediation: row?.info?.remediation || `Review the referenced ${row['template-id'] || 'Nuclei'} advisory, confirm affected software/version, then patch or mitigate.`, scanner: 'Nuclei' }));
+      if (!nuclei.success || nuclei.partial) errors.push(nuclei.error || nuclei.message);
+
+      const vulnerabilities = findings.filter(item => item.kind === 'vulnerability');
+      const partial = Boolean(nuclei.partial) || errors.length > 0;
+      const status = finalScanStatus({ findings: vulnerabilities.length, partial });
+      const finishedAt = new Date();
+      const nucleiMeta = (await readJson(path.join(dir, 'details.json')))?.securityKnownVulnerabilities || {};
+      const report = { status, startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), durationMs: finishedAt.getTime() - startedAt.getTime(), scope: details.authorization.scope, testedUrls, categories: ['security-headers', 'tls', 'cors', 'http-methods', 'known-vulnerability'], tools: [{ name: 'HunterKit native HTTP/TLS assessment', version: process.version }, { name: 'nuclei', version: nucleiMeta.toolVersion || 'unknown' }], vulnerabilityCount: vulnerabilities.length, observationCount: findings.length - vulnerabilities.length, findings, errors };
+      await fsp.writeFile(outputFile, JSON.stringify(findings, null, 2)); await fsp.writeFile(reportFile, JSON.stringify(report, null, 2));
+      await updateDetails(dir, { securityTesting: { ...resultObj(findings.length, outputFile), status, completed: !partial, partial, findings: vulnerabilities.length, observations: findings.length - vulnerabilities.length, testedUrls: testedUrls.length, startedAt: report.startedAt, finishedAt: report.finishedAt, durationMs: report.durationMs, errors } });
+      return { success: true, status, partial, result: findings.length, outputFile, error: null, message: `Security Testing ${status}: ${vulnerabilities.length} vulnerability finding(s), ${findings.length - vulnerabilities.length} observation(s), ${testedUrls.length} tested URL(s).` };
+    } catch (error) {
+      const message = errorText(error); const status: ScanStatus = 'FAILED_TOOL_ERROR'; const finishedAt = new Date();
+      await fsp.writeFile(reportFile, JSON.stringify({ status, startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), findings, errors: [...errors, message] }, null, 2)).catch(() => undefined);
+      await updateDetails(dir, { securityTesting: { ...resultObj(0, outputFile), status, failed: true, completed: false, error: message } }).catch(() => undefined);
+      return { success: false, status, result: 0, outputFile, error: message, message: 'Security Testing failed.' };
+    }
+  });
+}
+
+const severityWeight: Record<string, number> = { critical: 90, high: 70, medium: 45, low: 20, info: 5 };
+export async function generateIntelligentReport(name: string) {
+  const dir = projectPath(name); const details = await assertAuthorizedProject(dir); const generatedAt = new Date().toISOString();
+  const security: SecurityFinding[] = (await readJson(path.join(dir, 'security-findings.json'))) || [];
+  const attacks = await attackResults(name);
+  const reconContext = {
+    subdomains: await readLines(path.join(dir, 'recon_subdomins.txt')),
+    liveServices: await readLines(path.join(dir, 'httpx_live_domains.txt')),
+    javascriptUrls: await readLines(path.join(dir, 'waybackurls_js.txt')),
+    parameterizedUrls: await readLines(path.join(dir, 'waybackurls_parameter.txt')),
+  };
+  const normalized = [
+    ...security.map(item => ({ id: item.id, source: 'Security Testing', category: item.category, title: item.title, severity: item.severity, confidence: item.confidence, affectedUrl: item.affectedUrl, evidence: item.evidence, remediation: item.remediation, kind: item.kind })),
+    ...attacks.map((item: any) => ({ id: createHash('sha256').update(`${item['template-id']}|${item.url}`).digest('hex').slice(0, 16), source: item.sources?.map((source: any) => source.module).join(', ') || 'Penetration Testing', category: item['template-id'] || 'scanner-finding', title: item.info?.name || 'Scanner finding', severity: String(item.info?.severity || 'info').toLowerCase(), confidence: item['template-id'] === 'dalfox-xss' ? 'high' : 'medium', affectedUrl: item.url, evidence: item.info?.description || 'See raw scanner report.', remediation: item.info?.remediation || 'Validate the evidence, reproduce within the authorized scope, then patch the affected component or input-handling path.', kind: 'scanner-finding' })),
+  ];
+  const deduped = Array.from(new Map(normalized.map(item => [`${item.category}|${item.affectedUrl}|${item.title}`, item])).values()).map((item: any) => ({ ...item, riskScore: Math.min(100, (severityWeight[item.severity] || 5) + (item.confidence === 'high' ? 8 : item.confidence === 'medium' ? 3 : 0) + (reconContext.liveServices.some(url => item.affectedUrl.startsWith(url)) ? 5 : 0)) })).sort((a, b) => b.riskScore - a.riskScore);
+  const tested = ['securityTesting', ...Object.values(ATTACK_SPECS).map(spec => spec.key), 'XSS'].filter(key => details[key]?.status || details[key]?.run).map(key => ({ module: key, status: details[key]?.status || (details[key]?.completed ? finalScanStatus({ findings: details[key]?.result }) : details[key]?.skipped ? 'SKIPPED_NO_INPUTS' : details[key]?.partial ? 'PARTIAL' : 'FAILED_TOOL_ERROR') }));
+  const untested = ['securityTesting', ...Object.values(ATTACK_SPECS).map(spec => spec.key), 'XSS'].filter(key => !tested.some(item => item.module === key));
+  let aiInterpretation: any = { status: 'NOT_CONFIGURED', text: 'External AI interpretation was not requested because Cloudflare AI credentials are not configured. Deterministic prioritization below uses scanner evidence only.' };
+  if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN && deduped.length) {
+    try {
+      const response: any = await ai(`Analyze only these normalized findings. Do not invent CVEs, evidence, affected URLs or exploitability. Separate confirmed evidence from uncertainty and give remediation priorities:\n${JSON.stringify(deduped.slice(0, 30))}`);
+      aiInterpretation = { status: 'COMPLETED', text: response?.result?.response || 'AI provider returned no text.' };
+    } catch (error) { aiInterpretation = { status: 'FAILED_TOOL_ERROR', text: errorText(error) }; }
+  }
+  const status = finalScanStatus({ findings: deduped.length });
+  const report = { status, generatedAt, project: name, scope: details.authorization.scope, summary: deduped.length ? `${deduped.length} unique evidence-backed finding(s) were prioritized. Highest risk score: ${deduped[0].riskScore}/100.` : 'No findings are currently recorded. This means only the listed completed tests returned no findings; untested and skipped categories remain unknown.', reconContext, tested, untested, findings: deduped, aiInterpretation, evidenceBoundary: 'Scanner/native evidence is stored in findings[].evidence. Recon context affects exposure scoring but does not create a vulnerability. AI text is interpretation only and cannot create a finding.' };
+  await fsp.writeFile(path.join(dir, 'intelligent-security-report.json'), JSON.stringify(report, null, 2));
+  await updateDetails(dir, { intelligentAnalysis: { ...resultObj(deduped.length, path.join(dir, 'intelligent-security-report.json')), status, completed: true, generatedAt } });
+  return report;
+}
+
+export async function getIntelligentReport(name: string) {
+  const report = await readJson(path.join(projectPath(name), 'intelligent-security-report.json'));
+  return report || { status: 'SKIPPED_NO_INPUTS', findings: [], tested: [], untested: [], summary: 'Generate the report after running Security Testing and Penetration Testing.' };
+}
+
 export async function apiCall(name: string, location: string, type: string) {
   const base = projectPath(name); const full = path.resolve(base, location);
   if (!full.startsWith(base + path.sep) && full !== base) throw new Error('Invalid path');
@@ -1281,15 +1478,7 @@ export async function toolDiagnostics() {
     try {
       const p = await runProcess(toolPath(name), args, { timeout: 7000 });
       const output = (p.stdout + '\n' + p.stderr).replace(/\x1b\[[0-9;]*m/g, '');
-      const patterns: Record<string, RegExp> = {
-        subfinder: /Current Version:.*\d+\.\d+/i,
-        httpx: /Current Version:.*\d+\.\d+/i,
-        nuclei: /Nuclei Engine Version:.*3\./i,
-        dalfox: /dalfox\s+v?3\./i,
-        waybackurls: /Usage of .*waybackurls/i,
-        jsleak: /Enable secretFinder/i,
-      };
-      const ready = patterns[name].test(output);
+      const ready = isCompatibleToolOutput(name, output);
       checks.push({ name, ready, path: toolPath(name), detail: ready ? output.split(/\r?\n/).find(line => /version|dalfox|Usage of/i.test(line)) || 'Expected tool help is available' : 'Unexpected CLI/version. Run npm run download:tools to install tested binaries.' });
     } catch (e) { checks.push({ name, ready: false, path: toolPath(name), detail: errorText(e) }); }
   }

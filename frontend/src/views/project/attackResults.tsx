@@ -25,6 +25,7 @@ type ScanMeta = {
   requests?: number;
   requestErrors?: number;
   observations?: number;
+  status?: 'COMPLETED_WITH_FINDINGS' | 'COMPLETED_NO_FINDINGS' | 'SKIPPED_NO_INPUTS' | 'FAILED_TOOL_ERROR' | 'PARTIAL';
 };
 
 const severityColors: Record<string, string> = {
@@ -99,7 +100,7 @@ export default function AttacksResults() {
       {scanRows.length > 0 && (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
           {scanRows.map(({ key, label, meta }) => {
-            const status = meta.running ? 'RUNNING' : meta.failed ? 'FAILED' : meta.skipped ? 'SKIPPED' : meta.partial || meta.completed === false ? 'PARTIAL' : meta.completed === true ? 'COMPLETED' : 'LEGACY / UNKNOWN';
+            const status = meta.running ? 'RUNNING' : meta.status || (meta.failed ? 'FAILED_TOOL_ERROR' : meta.skipped ? 'SKIPPED_NO_INPUTS' : meta.partial || meta.completed === false ? 'PARTIAL' : meta.completed === true ? ((meta.result || 0) > 0 ? 'COMPLETED_WITH_FINDINGS' : 'COMPLETED_NO_FINDINGS') : 'LEGACY / UNKNOWN');
             return (
               <div key={key} className="rounded-lg border p-4 bg-white/5">
                 <div className="flex items-center justify-between gap-3">
@@ -124,7 +125,7 @@ export default function AttacksResults() {
       )}
 
       {records.length === 0 ? (
-        <div className="rounded-lg border p-6 text-gray-400">No scanner findings have been recorded. COMPLETED + 0 covers only selected inputs/templates; PARTIAL means incomplete coverage; SKIPPED means no active test ran; FAILED needs attention. Old runs without completion metadata are shown as LEGACY / UNKNOWN.</div>
+        <div className="rounded-lg border p-6 text-gray-400">No scanner findings have been recorded. COMPLETED_NO_FINDINGS covers only selected inputs/templates; PARTIAL means incomplete coverage; SKIPPED_NO_INPUTS means no active test ran; FAILED_TOOL_ERROR needs attention. Old runs without completion metadata are shown as LEGACY / UNKNOWN.</div>
       ) : Object.entries(grouped).map(([url, rows]) => (
         <div key={url} className="mb-8">
           <h2 className="text-lg font-bold mb-3 break-all">{url}</h2>

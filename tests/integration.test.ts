@@ -30,7 +30,7 @@ test('real scanners: complete project -> recon -> attack evidence -> clean resca
   const names: string[] = [];
   async function project(suffix: string, target = fixture.base + '/lab/') {
     const name = `HK-test-${process.pid}-${suffix}`; names.push(name);
-    await core.createProject(name, target); return core.projectPath(name);
+    await core.createProject(name, target, true); return core.projectPath(name);
   }
   try {
     const dir = await project('pipeline'); const name = path.basename(dir);
@@ -51,6 +51,15 @@ test('real scanners: complete project -> recon -> attack evidence -> clean resca
       assert.doesNotMatch(params, /outside\.invalid|\/login/);
       assert.match(await fs.readFile(path.join(dir, 'waybackurls_js.txt'), 'utf8'), /app\.js/);
     });
+    await t.test('Security Testing records native evidence, Nuclei evidence and standardized status', async () => {
+      const res = await core.runSecurityAssessment(dir);
+      assert.equal(res.success, true, JSON.stringify(res));
+      assert.equal(res.status, 'COMPLETED_WITH_FINDINGS');
+      const report = JSON.parse(await fs.readFile(path.join(dir, 'security-assessment.json'), 'utf8'));
+      assert.ok(report.testedUrls.length > 0); assert.ok(report.findings.some((finding: any) => finding.category === 'security-headers'));
+      assert.ok(report.findings.some((finding: any) => finding.category === 'known-vulnerability'));
+      assert.ok(report.findings.every((finding: any) => finding.evidence && finding.remediation && finding.observedAt));
+    });
     const modules = [
       ['General', 'generalScanning', core.generalScanning], ['Panels', 'exposedPanels', core.exposedPanels],
       ['Default login', 'defaultCredentials', core.defaultCredentials], ['Takeover signature', 'subdomainTakeovers', core.subdomainTakeovers],
@@ -69,6 +78,14 @@ test('real scanners: complete project -> recon -> attack evidence -> clean resca
       assert.ok(rows.some(row => row['template-id'] === 'sqli-error-based'));
       assert.ok(rows.some(row => row['template-id'] === 'linux-lfi-fuzz'));
       assert.ok(rows.every(row => new URL(row.url).port === new URL(fixture.base).port));
+    });
+    await t.test('Intelligent Analysis deduplicates only saved evidence and preserves the evidence boundary', async () => {
+      const report = await core.generateIntelligentReport(name);
+      assert.equal(report.status, 'COMPLETED_WITH_FINDINGS');
+      assert.ok(report.findings.length > 0); assert.ok(report.findings.every((finding: any) => finding.evidence && finding.riskScore > 0));
+      assert.ok(report.reconContext.liveServices.length > 0); assert.ok(report.reconContext.parameterizedUrls.length > 0);
+      assert.match(report.evidenceBoundary, /Scanner\/native evidence/);
+      assert.equal(report.aiInterpretation.status, 'NOT_CONFIGURED');
     });
     await t.test('JSLeak secrets and endpoints execute with real stdin tool input', async () => {
       const secret = await core.findSecret(dir), links = await core.extraLinks(dir);

@@ -1,5 +1,5 @@
 {
-  "version": "1.10.2",
+  "version": "1.12.0",
   "verifiedAt": "2026-10-21",
   "freshZipExtraction": true,
   "npmCi": "PASS",
@@ -8,8 +8,9 @@
   "build": "PASS",
   "toolDiagnostics": "PASS",
   "attackProfiles": "PASS",
-  "browserAndRealToolTests": "37/37 PASS",
+  "browserAndRealToolTests": "43/43 PASS",
+  "integrationTests": "29/29 PASS",
   "fullAttackProfiles": "9/9 COMPLETED",
-  "deterministicDemoLab": "PASS (loopback only)",
+  "threeModuleSmoke": "PASS (Security Testing, Penetration Testing, Intelligent Analysis; loopback only)",
   "npmAuditKnownVulnerabilities": 0
 }

@@ -51,6 +51,7 @@ const projectActionChannels = new Set([
   'find-secrets', 'extra-links', 'general-scan', 'exposed-panels',
   'default-credentials', 'exposures', 'lfi', 'potential-xss', 'multi-scans',
   'subdomain-takeovers', 'vulns-cves',
+  'security-assessment', 'generate-intelligent-report',
 ]);
 const activeProjectJobs = new Map<string, string>();
 app.post('/api/ipc/:channel',async(req,res)=>{
@@ -70,7 +71,7 @@ app.post('/api/ipc/:channel',async(req,res)=>{
     let out:any;
     switch(c){
       case 'list-projects': out=core.listProjects(); break;
-      case 'create-project': out=await core.createProject(a.projectName,a.domain); break;
+      case 'create-project': out=await core.createProject(a.projectName,a.domain,a.authorized); break;
       case 'get-project-details': out=await core.getDetails(first(args)); break;
       case 'get-project-scan': out=await core.getProjectScan(first(args)); break;
       case 'get-attack-result': out={error:false,results:await core.attackResults(first(args))}; break;
@@ -93,6 +94,9 @@ app.post('/api/ipc/:channel',async(req,res)=>{
       case 'multi-scans': out=await core.scanningForSQLi(core.projectPath(a.projectName)); break;
       case 'subdomain-takeovers': out=await core.subdomainTakeovers(core.projectPath(a.projectName)); break;
       case 'vulns-cves': out=await core.scanningCVEs(core.projectPath(a.projectName)); break;
+      case 'security-assessment': out=await core.runSecurityAssessment(core.projectPath(a.projectName)); break;
+      case 'generate-intelligent-report': out=await core.generateIntelligentReport(a.projectName); break;
+      case 'get-intelligent-report': out=await core.getIntelligentReport(first(args)); break;
       case 'fetch-data': out=await core.ai(a.userInput); break;
       case 'get-project-dir': out=core.PROJECT_DIR; break;
       default: throw new Error(`Unknown IPC channel: ${c}`);

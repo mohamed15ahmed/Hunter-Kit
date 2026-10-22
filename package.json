@@ -1,6 +1,6 @@
 {
   "name": "hunterkit-web",
-  "version": "1.10.2",
+  "version": "1.12.0",
   "private": true,
   "workspaces": [
     "frontend",
@@ -18,7 +18,8 @@
     "setup:templates": "node scripts/setup-templates.mjs",
     "setup": "npm ci && npm run download:tools && npm run setup:templates && npm run check:tools && npm run check:attacks",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
-    "test:integration": "tsx --test --test-concurrency=1 tests/integration.test.ts"
+    "test:integration": "tsx --test --test-concurrency=1 tests/integration.test.ts tests/api.test.ts",
+    "smoke:modules": "tsx tests/module-smoke.mts"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

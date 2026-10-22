@@ -1,4 +1,14 @@
-# تقرير مراجعة وإصلاح HunterKit 1.10.2
+# تقرير مراجعة وإصلاح HunterKit 1.12.0
+
+## إعادة بناء المسارات الثلاثة
+
+أضيف في 1.12.0 مسار **Security Testing** مستقل ينفذ فحوص headers وTLS وCORS وHTTP methods ويشغل Nuclei CVE templates، ويحفظ لكل نتيجة النوع والدليل والشدة والثقة والرابط والإصلاح والوقت. غياب header يُسجل observation ولا يتحول تلقائيًا إلى ثغرة قابلة للاستغلال.
+
+ظل **Penetration Testing** هو المسار النشط لـNuclei DAST وDalfox، وأصبحت حالاته النهائية موحدة: `COMPLETED_WITH_FINDINGS` و`COMPLETED_NO_FINDINGS` و`SKIPPED_NO_INPUTS` و`FAILED_TOOL_ERROR` و`PARTIAL`. يرفض backend أي اختبار نشط لمشروع لم يسجل تأكيد ملكية/تصريح ونطاق واضح.
+
+أضيف **AI & Intelligent Analysis** لتجميع Recon context وأدلة Security/Penetration الفعلية، إزالة التكرار، ترتيب المخاطر، وإظهار remediation. تفسير Cloudflare AI اختياري ومنفصل نصيًا وبيانيًا عن evidence؛ عند غياب credentials يظل التقرير الحتمي كاملًا ولا تُختلق نتائج.
+
+لم يُضمّن sqlmap لأن سلسلة Python/Windows الخاصة به لم تُختبر في هذه البيئة؛ SQLi يستخدم Nuclei DAST المثبت والمختبر. لم يُضف SSRF نشط عام بدون collaborator آمن ومعمل إثبات مخصص.
 
 ## ضبط حالة الاكتمال للمناقشة
 
@@ -16,7 +26,7 @@
 - إصلاح تحقق Node والأدوات في سكربتات Windows، ومنع Vite من الانتقال الصامت إلى منفذ غير 5173.
 - إصلاح سكربت full-profile نفسه ليعمل بالتتابع ويشمل Dalfox، بعد أن كشف منع التوازي أن السكربت القديم قد يبدأ التنظيف وأداة أخرى ما زالت تكتب.
 
-التحقق النهائي المسجل: build للواجهة والـbackend، 37/37 اختبارًا بدون فشل أو تخطٍ، متصفح Chromium حقيقي، وكل أدوات Nuclei/Dalfox/HTTPX/Subfinder/WaybackURLs/JSLeak، بالإضافة إلى جولة profiles الكاملة الموضحة أدناه.
+التحقق النهائي المسجل: build للواجهة والـbackend، 43/43 اختبارًا كاملًا و29/29 integration test بدون فشل أو تخطٍ، smoke للمسارات الثلاثة، متصفح Chromium حقيقي، وكل أدوات Nuclei/Dalfox/HTTPX/Subfinder/WaybackURLs/JSLeak.
 
 ## النتيجة
 
@@ -56,7 +66,7 @@
 
 1. تثبيت npm dependencies وإنشاء package-lock؛ بناء TypeScript وVite.
 2. تنزيل وتشغيل البرامج الفعلية: Nuclei3.11.1، Dalfox3.2.4، HTTPX1.12.0، Subfinder2.17.0، WaybackURLs0.1.0، JSLeak1.0.0. تنزيل ملفات Windows x64 أيضًا للتحقق من الأرشيف والـ executable digest، بدون ادعاء تشغيلها على Windows.
-3. نجح **37 اختبارًا، بدون فشل أو تخطٍ في جولة التحقق المسجلة**: unit وreal-tool integration، تشغيل API فعلي، واختبار React في Chromium: إنشاء مشروع بعنوان كامل، تشغيل Panels من الزر، تعطيل بقية أزرار الهجوم أثناء عمله، ظهور الدليل ومصدره، وتشغيل JS endpoints وعرضها.
+3. نجح **43 اختبارًا، بدون فشل أو تخطٍ في جولة التحقق المسجلة**، ونجح أمر integration المنفصل في **29/29**: unit وreal-tool integration، تشغيل API فعلي، واختبار React في Chromium للمسارات الجديدة والقديمة.
 4. الصور تُنتَج فعليًا بمتصفح Chromium. احتاجت حاوية الاختبار wrapper مؤقتًا لتشغيل المتصفح بدون sandbox الخاص به داخل الحاوية المعزولة؛ هذا ليس الإعداد الافتراضي للتطبيق وليس ضمن ملفات التشغيل الموزعة.
 5. إعادة فحص هدف fixture بعد تحويل XSS إلى HTML مهرب وإزالة panel signature أعادت نتائج تلك الأدوات إلى0، مع بقاء مصادر modules الأخرى موضحة.
 6. اختبارات missing templates، no parameters، timeout، duplicate requests، scope filtering، concurrent metadata وmalformed JSON.
